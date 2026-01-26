@@ -1150,8 +1150,6 @@ function memasang_noobz() {
   unzip noobzvpns.zip
   rm -rf noobzvpns.zip noobzvpns.zip.1 noobzvpns.zip.2 noobzvpns.zip.3 noobzvpns.zip.4
   cd noobzvpns
-  chmod +x install.sh
-  ./install.sh
   systemctl start noobzvpns
   systemctl restart noobzvpns
   cd

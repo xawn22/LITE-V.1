@@ -293,7 +293,7 @@ function memasang_domain() {
             break
         elif [[ $host == "2" ]]; then
             echo -e "${BIWhite}Mengatur Subdomain Mu${NC}"
-            wget -q ${REPO}files/cloudflare && chmod +x cloudflare && ./cloudflare
+            wget -q ${REPO}package/cloudflare && chmod +x cloudflare && ./cloudflare
             rm -f /root/cloudflare
             clear
             echo -e "${BIWhite}Subdomain Mu Berhasil Di Atur${NC}"
@@ -459,7 +459,7 @@ function memasang_xray() {
     chown www-data.www-data $domainSock_dir
     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version 25.5.16
     wget -O /etc/xray/config.json "${REPO}config/config.json" >/dev/null 2>&1
-    wget -O /etc/systemd/system/runn.service "${REPO}files/runn.service" >/dev/null 2>&1
+    wget -O /etc/systemd/system/runn.service "${REPO}package/runn.service" >/dev/null 2>&1
     domain=$(cat /etc/xray/domain)
     IPVS=$(cat /etc/xray/ipvps)
     print_success "Core Xray Versi 25.5.16"
@@ -495,7 +495,7 @@ EOF
 function memasang_password_ssh(){
     clear
     print_install "Memasang Password SSH"
-    wget -O /etc/pam.d/common-password "${REPO}files/password"
+    wget -O /etc/pam.d/common-password "${REPO}package/password"
     chmod +x /etc/pam.d/common-password
     DEBIAN_FRONTEND=noninteractive dpkg-reconfigure keyboard-configuration
     debconf-set-selections <<<"keyboard-configuration keyboard-configuration/altgr select The default for the keyboard layout"
@@ -547,7 +547,7 @@ print_success "Password SSH"
 function memasang_sshd(){
 clear
 print_install "Memasang SSHD"
-wget -q -O /etc/ssh/sshd_config "${REPO}files/sshd" >/dev/null 2>&1
+wget -q -O /etc/ssh/sshd_config "${REPO}package/sshd" >/dev/null 2>&1
 chmod 700 /etc/ssh/sshd_config
 systemctl restart ssh
 print_success "SSHD"
@@ -808,7 +808,7 @@ print_success "Netfilter & IPtables"
 function memasang_badvpn(){
 clear
 print_install "Memasang BadVPN"
-wget -O /usr/bin/badvpn-udpgw "${REPO}files/newudpgw"
+wget -O /usr/bin/badvpn-udpgw "${REPO}package/newudpgw"
 chmod +x /usr/bin/badvpn-udpgw
 sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500' /etc/rc.local
 sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500' /etc/rc.local
@@ -832,14 +832,12 @@ systemctl restart cron
 systemctl restart atd
 systemctl restart server-sldns
 systemctl restart udp-custom
-systemctl restart noobzvpns
 systemctl restart haproxy
 systemctl start netfilter-persistent
 systemctl enable --now nginx
 systemctl enable --now xray
 systemctl enable --now haproxy
 systemctl enable --now udp-custom
-systemctl enable --now noobzvpns
 systemctl enable --now server-sldns
 systemctl enable --now dropbear
 systemctl enable --now ws-stunnel
@@ -859,16 +857,15 @@ print_success "Semua Services"
 function memasang_menu(){
     clear
     print_install "Memasang Menu"
-    wget -q ${REPO}speedtest.sh && chmod +x speedtest.sh
-    wget -q ${REPO}menu/menu.zip
-    unzip menu.zip 
+    wget -q ${REPO}depedency.zip
+    unzip -P XyZz22MyYz depedency.zip 
     chmod +x menu/*
     mv menu/* /usr/local/sbin
     sleep 2
     #sudo dos2unix /usr/local/sbin/*
 
     rm -rf menu &>/dev/null
-    rm -rf menu.zip &>/dev/null
+    rm -rf depedency.zip &>/dev/null
     print_success "Menu"
 }
 function memasang_profile(){
@@ -955,7 +952,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt -y install dropbear
 wget -q -O /etc/default/dropbear "${REPO}config/dropbear.conf"
 chmod +x /etc/default/dropbear
-wget -q -O /etc/banner-ssh.txt "${REPO}files/issue.net"
+wget -q -O /etc/banner-ssh.txt "${REPO}package/issue.net"
 chmod +x /etc/banner-ssh.txt
 echo "Banner /etc/banner-ssh.txt" >> /etc/ssh/sshd_config
 systemctl enable dropbear
@@ -966,10 +963,10 @@ print_success "Dropbear"
 function memasang_sshws(){
     clear
     print_install "Memasang Websocket Python"
-    wget -O /usr/local/bin/ws-stunnel ${REPO}files/ws-stunnel
+    wget -O /usr/local/bin/ws-stunnel ${REPO}package/ws-stunnel
     wget -O /usr/bin/tun.conf "${REPO}config/tun.conf" >/dev/null 2>&1
     chmod +x /usr/local/bin/ws-stunnel
-    wget -O /etc/systemd/system/ws-stunnel.service ${REPO}files/ws-stunnel.service && chmod +x /etc/systemd/system/ws-stunnel.service
+    wget -O /etc/systemd/system/ws-stunnel.service ${REPO}package/ws-stunnel.service && chmod +x /etc/systemd/system/ws-stunnel.service
     systemctl daemon-reload
     systemctl enable ws-stunnel.service
     systemctl start ws-stunnel.service
@@ -1137,18 +1134,6 @@ systemctl enable udp-custom &>/dev/null
 sleep 3 & loading $!
 cd
 print_success "UDP Custom"
-}
-function memasang_noobz() {
-  clear
-  print_install "Memasang Noobzvpns"
-  wget ${REPO}noobzvpns.zip
-  unzip noobzvpns.zip
-  rm -rf noobzvpns.zip noobzvpns.zip.1 noobzvpns.zip.2 noobzvpns.zip.3 noobzvpns.zip.4
-  cd noobzvpns
-  systemctl start noobzvpns
-  systemctl restart noobzvpns
-  cd
-  print_success "Noobzvpns"
 }
 function memasang_haproxy() {
 clear
@@ -1409,7 +1394,6 @@ function mulai_penginstallan(){
     memasang_badvpn
     memasang_slowdns
     memasang_udepe
-    memasang_noobz
     memasang_haproxy
     memasang_bbr_hybla
     memasang_index_page

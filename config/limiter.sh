@@ -6,11 +6,11 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 install_services() {
-    local REPO="https://raw.githubusercontent.com/xawn22/LITE-V.1/main/files/"
+    local REPO="https://raw.githubusercontent.com/xawn22/LITE-V.1/main/package/"
     local LIMIT_IP_SERVICES=("limiter-vm" "limiter-vl" "limiter-trj" "limiter-shd" "limiter-ssh")
-    local LIMIT_IP_REMOTE_FILES=("lite-vm" "lite-vl" "lite-trj" "lite-shd" "lite-ssh")
+    local LIMIT_IP_REMOTE_FILES=("warning-vmess" "warning-vless" "warning-trojan" "warning-shadowsocks" "warning-ssh")
     local LIMIT_QUOTA_SERVICES=("limitvmess" "limitvless" "limittrojan" "limitshadowsocks")
-    local LIMIT_QUOTA_REMOTE_FILES=("vmess" "vless" "trojan" "shadowsocks")
+    local LIMIT_QUOTA_REMOTE_FILES=("action-vmess" "action-vless" "action-trojan" "action-shadowsocks")
     local ALL_SERVICES=("${LIMIT_IP_SERVICES[@]}" "${LIMIT_QUOTA_SERVICES[@]}")
 
     echo "Memulai instalasi layanan systemd..."
@@ -24,8 +24,8 @@ install_services() {
         echo "- ${service} dihapus."
     done
 
-    rm -f "/usr/local/bin/"{lite-vm,lite-vl,lite-trj,lite-shd,lite-ssh} &>/dev/null
-    rm -f "/etc/xray/limit."{vmess,vless,trojan,shadowsocks} &>/dev/null
+    rm -f "/usr/local/bin/"{warning-vmess,warning-vless,warning-trojan,warning-shadowsocks,warning-ssh} &>/dev/null
+    rm -f "/etc/xray/limit."{action-vmess,action-vless,action-trojan,action-shadowsocks} &>/dev/null
     echo "- File biner lama dihapus."
 
     echo "2. Menginstal skrip dan membuat layanan Limit IP..."

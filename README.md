@@ -11,16 +11,10 @@ apt update -y && apt upgrade -y --fix-missing && apt install -y xxd bzip2 wget c
 screen -S setup-session bash -c "wget -q https://raw.githubusercontent.com/xawn22/LITE-V.1/main/debian_ubuntu.sh && chmod +x debian_ubuntu.sh && ./debian_ubuntu.sh; read -p 'Tap enter to back....'"
 ```
 
-<h1 align="center">✨ My Awesome Project</h1>
+<h1 align="center">✨My Simple Project✨</h1>
 
 <p align="center">
-  <i>Simple. Useful. Built with passion.</i>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/github/stars/USERNAME/REPO?style=flat-square">
-  <img src="https://img.shields.io/github/forks/USERNAME/REPO?style=flat-square">
-  <img src="https://img.shields.io/github/license/USERNAME/REPO?style=flat-square">
+  <i>@ 2026 - Setiawan</i>
 </p>
 
 ---

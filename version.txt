@@ -1,0 +1,7 @@
+LATEST_VERSION="1.2.3"
+UPDATE_DATE="2026-02-19"
+UPDATE_NOTES="• Perbaikan bug SSH
+• Penambahan menu baru
+• Optimasi sistem update"
+SCRIPT_URL="https://raw.githubusercontent.com/xawn22/LITE-V.1/main/depedency.zip"
+FORCE_UPDATE=false

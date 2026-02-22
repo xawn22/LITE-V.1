@@ -1401,6 +1401,7 @@ function mulai_penginstallan(){
     memasang_notifikasi_bot
 }
 mulai_penginstallan
+echo "VERSION_LOCAL="1.4.2"" >/etc/stn_version
 history -c
 rm -rf /root/menu
 rm -rf /root/*.zip

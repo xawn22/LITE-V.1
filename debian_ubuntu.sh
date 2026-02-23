@@ -1,6 +1,12 @@
 #!/bin/bash
 clear
 export DEBIAN_FRONTEND=noninteractive
+# 5 WARNA CERAH (PILIHAN TERBAIK)
+MERAH='\033[1;91m'        # Merah cerah
+KUNING='\033[1;93m'       # Kuning cerah
+HIJAU='\033[1;92m'        # Hijau cerah
+BIRU='\033[1;94m'         # Biru cerah
+UNGU='\033[1;95m'         # Ungu cerah
 FONT='\033[0m'
 Green="\e[92;1m"
 YELLOW='\033[1;33m'
@@ -22,7 +28,7 @@ NC='\033[0m'
 tampilan() {
     local my_ip allowed_ips_url today matched_line exp_date_or_lifetime
 
-    allowed_ips_url="https://raw.githubusercontent.com/xawn22/LITE-V.1/main/ip"
+    allowed_ips_url="https://raw.githubusercontent.com/xawn22/assets/main/authorized_main_ip"
     echo -e "\n${BIWhite}[ ${BIYellow}INFO${BIWhite} ] Mengecek izin akses...${NC}"
     
     my_ip=$(curl -sS ipv4.icanhazip.com | tr -d '\r')
@@ -149,7 +155,7 @@ function print_ok() {
     echo -e "${BIWhite}${BLUE}$1${NC}"
 }
 function print_install() {
-    echo -e "${LIME}✥${BIWhite} $1${NC}"
+    echo -e "${BIRU} [ INFO ] : ${BIWhite} $1${NC}"
     sleep 1
 }
 function print_error() {
@@ -157,7 +163,7 @@ function print_error() {
 }
 function print_success() {
     if [[ 0 -eq $? ]]; then
-        echo -e "${BIWhite}✥${LIME} $1 Berhasil Di Pasang${NC}"
+        echo -e "${BIRU}[ INFO ] : ${HIJAU} $1 Successfully installed${NC}"
         sleep 2
     fi
 }
@@ -171,7 +177,8 @@ function mengecek_akses_root() {
 }
 end=$(date +%s)
 secs_to_human $((end-start))
-print_install "Memasang Direktori dan log file Xray"
+clear
+print_install "Insttaling Log File & Create Directory XRAY"
 mkdir -p /etc/xray
 curl -s ifconfig.me > /etc/xray/ipvps
 touch /etc/xray/domain
@@ -197,10 +204,10 @@ export OS_Name=$(grep -w PRETTY_NAME /etc/os-release | head -n1 | cut -d= -f2 | 
 export Kernel=$(uname -r)
 export Arch=$(uname -m)
 export IP=$(curl -s https://ipinfo.io/ip/)
-print_success "Direktori dan log file Xray"
+print_success "Log File & Create Directory XRAY"
 function pengaturan_pertama() {
     clear
-    print_install "Mengatur Tanggal,waktu ke WIB"
+    print_install "Change Time To WIB"
     timedatectl set-timezone Asia/Jakarta
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
@@ -208,7 +215,7 @@ function pengaturan_pertama() {
 }
 function memasang_nginx() {
     clear
-    print_install "Memasang Nginx & konfigurasinya"
+    print_install "Installing NGINX And Configuration"
     apt install nginx -y
     cat <<EOL | sudo tee /etc/nginx/mime.types > /dev/null
 types {
@@ -235,11 +242,11 @@ types {
 EOL
     sudo nginx -t
     sudo systemctl restart nginx
-    print_success "Nginx & konfigurasinya"
+    print_success "Nginx And Configuration"
 }
 function memasang_paket_dasar() {
     clear
-    print_install "Memasang Paket Dasar"
+    print_install "Installing Other Packager"
     export DEBIAN_FRONTEND=noninteractive
     apt update -y
     apt upgrade -y
@@ -273,11 +280,11 @@ function memasang_paket_dasar() {
 function memasang_domain() {
     clear
     print_install "Silahkan Atur Domain Anda"
-    echo -e "${BIWhite}┌──────────────────────────────────────┐${NC}"
-    echo -e "${LIME}            Setup domain Menu         ${NC}"
-    echo -e "${BIWhite}└──────────────────────────────────────┘${NC}"
-    echo -e "${LIME}[${BIWhite}01${LIME}]${BIWhite} Menggunakan Domain Sendiri${NC}"
-    echo -e "${LIME}[${BIWhite}02${LIME}]${BIWhite} Menggunakan Domain Bawaan Dari Script${NC}"
+    echo -e "${BICyan}┌──────────────────────────────────────┐${NC}"
+    echo -e "${BIWhite}            Setup domain Menu         ${NC}"
+    echo -e "${BICyan}└──────────────────────────────────────┘${NC}"
+    echo -e "${LIME}[${BIWhite}01${LIME}]${BIWhite} Memakai domain pribadi${NC}"
+    echo -e "${LIME}[${BIWhite}02${LIME}]${BIWhite} Memakai domain yang ada di script${NC}"
     echo -e "${BIWhite}└──────────────────────────────────────┘${NC}"
     echo -e ""
     while true; do
@@ -300,7 +307,7 @@ function memasang_domain() {
             break
         else
             echo -e "${RED}Pilihan Mu Tidak Valid! Harap Pilih Angka 1 Atau 2.${NC}"
-            echo -e "${BIWhite}└──────────────────────────────────────┘${NC}"
+            echo -e "${BICyan}└──────────────────────────────────────┘${NC}"
         fi
     done
     
@@ -309,7 +316,7 @@ function memasang_domain() {
 memasang_notifikasi_bot() {
   clear
   local MYIP=$(curl -sS ipv4.icanhazip.com)
-  local izinsc="https://raw.githubusercontent.com/xawn22/LITE-V.1/main/ip"
+  local izinsc="https://raw.githubusercontent.com/xawn22/assets/main/authorized_main_ip"
   
   local IP_DATA_LINE=$(curl -s "$izinsc" | grep -w "$MYIP" | head -1)
 
@@ -357,31 +364,25 @@ memasang_notifikasi_bot() {
 
   local TEXT="
 <b>━━━━━━━━━━━━━━━━━</b>
- <b>TALES OF FREENET ON</b>
+ <b>PROJECT AIO V.1</b>
 <b>━━━━━━━━━━━━━━━━━</b>
-<b>Autoscript Installation v25.5.16</b>
 <b>Name :</b> <code>$username</code>
-<b>Time :</b> <code>$TIMEZONE</code>
 <b>Domain :</b> <code>$domain</code>
 <b>IP :</b> <code>$MYIP</code>
 <b>ISP :</b> <code>$ISP</code>
-<b>City :</b> <code>$CITY</code>
 <b>OS :</b> <code>$OS</code>
-<b>RAM :</b> <code>$RAM</code>
-<b>Uptime :</b> <code>$UPTIME</code>
-<b>CPU :</b> <code>$CPU</code>
 <b>Expiration :</b> $EXPIRE_INFO
 <b>━━━━━━━━━━━━━━━━━</b>
-<b>Automatic Notification From Installer Client...</b>
+<b>Installer Notif.....</b>
 "
   
-  local INLINE_KEYBOARD='{"inline_keyboard":[[{"text":"Telegram","url":"https://t.me/freenet_on"},{"text":"Contact","url":"https://wa.me/6281934335091"}]]}'
+  local INLINE_KEYBOARD='{"inline_keyboard":[[{"text":"Telegram","url":"https://t.me/WaanSuka_Turu"},{"text":"Contact","url":"https://wa.me/6282323704490"}]]}'
   
   curl -s --max-time "$TIME" -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html&reply_markup=$INLINE_KEYBOARD" "$URL" >/dev/null
 }
 function memasang_ssl() {
     clear
-    print_install "Memasang Sertifikat SSL Pada Domain"
+    print_install "Installing Cert Domain SSL"
     rm -rf /etc/xray/xray.key
     rm -rf /etc/xray/xray.crt
     domain=$(cat /root/domain)
@@ -397,11 +398,11 @@ function memasang_ssl() {
     /root/.acme.sh/acme.sh --issue -d $domain --standalone -k ec-256
     ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc
     chmod 777 /etc/xray/xray.key
-    print_success "Sertifikat SSL Pada Domain"
+    print_success "Cert Domain SSL"
 }
 function memasang_folder_xray() {
     clear
-    print_install "Membuat Folder Tambahan Untuk SSH & Xray"
+    print_install "Create additional folders SSH And XRAY"
     rm -rf /etc/user_locks.db
     rm -rf /etc/ssh/.ssh.db
     rm -rf /etc/vmess/.vmess.db
@@ -449,11 +450,11 @@ function memasang_folder_xray() {
     echo "& plughin Account" >>/etc/trojan/.trojan.db
     echo "& plughin Account" >>/etc/shadowsocks/.shadowsocks.db
     echo "echo -e 'Vps Config User Account'" >> /etc/user-create/user.log
-    print_install "Folder Tambahan Untuk SSH & Xray"
+    print_install "additional folders SSH And XRAY"
 }
 function memasang_xray() {
     clear
-    print_install "Memasang Core Xray Versi 25.5.16"
+    print_install "Insttaling XRay Core V.25.5.16"
     domainSock_dir="/run/xray"
     ! [ -d $domainSock_dir ] && mkdir -p $domainSock_dir
     chown www-data.www-data $domainSock_dir
@@ -462,7 +463,7 @@ function memasang_xray() {
     wget -O /etc/systemd/system/runn.service "${REPO}package/runn.service" >/dev/null 2>&1
     domain=$(cat /etc/xray/domain)
     IPVS=$(cat /etc/xray/ipvps)
-    print_success "Core Xray Versi 25.5.16"
+    print_success "XRay Core V.25.5.16"
     clear
     curl -s ipinfo.io/city >> /etc/xray/city
     curl -s ipinfo.io/org | cut -d " " -f 2-10 >> /etc/xray/isp
@@ -494,7 +495,7 @@ EOF
 }
 function memasang_password_ssh(){
     clear
-    print_install "Memasang Password SSH"
+    print_install "Installing Password SSH"
     wget -O /etc/pam.d/common-password "${REPO}package/password"
     chmod +x /etc/pam.d/common-password
     DEBIAN_FRONTEND=noninteractive dpkg-reconfigure keyboard-configuration
@@ -546,7 +547,7 @@ print_success "Password SSH"
 }
 function memasang_sshd(){
 clear
-print_install "Memasang SSHD"
+print_install "Installing SSHD"
 wget -q -O /etc/ssh/sshd_config "${REPO}package/sshd" >/dev/null 2>&1
 chmod 700 /etc/ssh/sshd_config
 systemctl restart ssh
@@ -554,7 +555,7 @@ print_success "SSHD"
 }
 function memasang_vnstat(){
 clear
-print_install "Memasang Vnstat"
+print_install "Installing VNSTAT"
 apt -y install vnstat > /dev/null 2>&1
 apt -y install libsqlite3-dev > /dev/null 2>&1
 wget -q https://humdi.net/vnstat/vnstat-2.6.tar.gz
@@ -571,45 +572,9 @@ rm -rf /root/vnstat-2.6 >/dev/null 2>&1
 print_success "Vnstat"
 }
 
-memasang_pencadangan() {
-  clear
-  print_install "Memasang Pencadangan Server"
-  export DEBIAN_FRONTEND=noninteractive
-  apt update && apt install rclone -y
-
-  local rclone_b64_config=$(get_rclone_config_base64)
-  mkdir -p /root/.config/rclone/
-  echo "$rclone_b64_config" | base64 -d > /root/.config/rclone/rclone.conf
-  
-  cd /bin
-  git clone https://github.com/magnific0/wondershaper.git
-  cd wondershaper
-  sudo make install
-  cd
-  rm -rf wondershaper
-  echo > /home/limit
-
-  apt install msmtp-mta ca-certificates bsd-mailx -y
-  cat <<EOF>>/etc/msmtprc
-defaults
-tls on
-tls_starttls on
-tls_trust_file /etc/ssl/certs/ca-certificates.crt
-account default
-host smtp.gmail.com
-port 587
-auth on
-user xiaolitekyt@gmail.com
-from xiaolitekyt@gmail.com
-password cwmbmtnushnfrlup
-logfile ~/.msmtp.log
-EOF
-  chown -R www-data:www-data /etc/msmtprc
-  print_success "Pencadangan Server"
-}
 function memasang_bbr_hybla(){
   clear
-  print_install "Memasang BBR Hybla"
+  print_install "Installing BBR Hybla"
 
   apt install -y ethtool net-tools haveged htop iftop
 
@@ -765,13 +730,13 @@ EOF
 }
 function memasang_pembatas(){
 clear
-print_install "Memasang Service Pembatasan IP & Quota"
+print_install "Installing Service Limiter IP & Quota"
 wget -q ${REPO}config/limiter.sh && chmod +x limiter.sh && ./limiter.sh
-print_success "Service Pembatasan IP & Quota"
+print_success "Service Limiter IP & Quota"
 }
 function memasang_fail2ban(){
     clear
-    print_install "Memasang Fail2ban"
+    print_install "Installing Fail2ban"
     apt update -y && apt install -y fail2ban > /dev/null 2>&1
     if [ -d "/usr/local/ddos" ]; then
         echo -e "\nUninstalling The Previous Version First..."
@@ -793,7 +758,7 @@ function memasang_fail2ban(){
 }
 function memasang_netfilter(){
 clear
-print_install "Memasang Netfilter & IPtables"
+print_install "Installing Netfilter & IPtables"
 wget -q -O /usr/local/share/xray/geosite.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" >/dev/null 2>&1
 wget -q -O /usr/local/share/xray/geoip.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat" >/dev/null 2>&1
 iptables-save > /etc/iptables.up.rules
@@ -807,7 +772,7 @@ print_success "Netfilter & IPtables"
 }
 function memasang_badvpn(){
 clear
-print_install "Memasang BadVPN"
+print_install "Installing BadVPN UDPGW"
 wget -O /usr/bin/badvpn-udpgw "${REPO}package/newudpgw"
 chmod +x /usr/bin/badvpn-udpgw
 sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500' /etc/rc.local
@@ -820,7 +785,7 @@ print_success "BadVPN"
 }
 function memasang_restart(){
 clear
-print_install "Memulai Semua Services"
+print_install "Starting ALL Service"
 systemctl daemon-reload
 systemctl restart nginx
 systemctl restart ssh
@@ -852,11 +817,11 @@ cd
 rm -f /root/openvpn
 rm -f /root/key.pem
 rm -f /root/cert.pem
-print_success "Semua Services"
+print_success "ALL Service"
 }
 function memasang_menu(){
     clear
-    print_install "Memasang Menu"
+    print_install "Installing UI AutoScript AIO V.1"
     wget -q ${REPO}depedency.zip
     unzip -P XyZz22MyYz depedency.zip 
     chmod +x menu/*
@@ -866,11 +831,11 @@ function memasang_menu(){
 
     rm -rf menu &>/dev/null
     rm -rf depedency.zip &>/dev/null
-    print_success "Menu"
+    print_success "UI AutoScript AIO V.1"
 }
 function memasang_profile(){
     clear
-    print_install "Memasang Profil"
+    print_install "Installing Profile"
     cat >/root/.profile <<EOF
 if [ "$BASH" ]; then
     if [ -f ~/.bashrc ]; then
@@ -943,11 +908,11 @@ EOF
     else
         TIME_DATE="AM"
     fi
-    print_success "Profil"
+    print_success "Profile"
 }
 function memasang_dropbear(){
 clear
-print_install "Memasang Dropbear"
+print_install "Installing Dropbear System"
 export DEBIAN_FRONTEND=noninteractive
 apt -y install dropbear
 wget -q -O /etc/default/dropbear "${REPO}config/dropbear.conf"
@@ -958,11 +923,11 @@ echo "Banner /etc/banner-ssh.txt" >> /etc/ssh/sshd_config
 systemctl enable dropbear
 systemctl start dropbear
 systemctl restart dropbear
-print_success "Dropbear"
+print_success "Dropbear System"
 }
 function memasang_sshws(){
     clear
-    print_install "Memasang Websocket Python"
+    print_install "Installing Configuration WebSocket Python"
     wget -O /usr/local/bin/ws-stunnel ${REPO}package/ws-stunnel
     wget -O /usr/bin/tun.conf "${REPO}config/tun.conf" >/dev/null 2>&1
     chmod +x /usr/local/bin/ws-stunnel
@@ -981,11 +946,11 @@ function memasang_sshws(){
     cd
     apt autoclean -y >/dev/null 2>&1
     apt autoremove -y >/dev/null 2>&1
-    print_success "Websocket Python"
+    print_success "Configuration WebSocket Python"
 }
 function memasang_slowdns() {
 clear
-print_install "Memasang Slowdns"
+print_install "Installing SlowDNS Manager"
 cd
 rm -rf /root/nsdomain
 rm nsdomain
@@ -1023,7 +988,7 @@ chmod +x /etc/slowdns/sldns-server
 cd
 cat > /etc/systemd/system/server-sldns.service << EOF
 [Unit]
-Description=Server SlowDNS By LITE
+Description=Server SlowDNS By Awan
 Documentation=https://one.one.one.one
 After=network.target nss-lookup.target
 [Service]
@@ -1066,12 +1031,12 @@ echo -e "${BIWhite}Please Pointing Type NS${NC} ${BIYellow}$nameserver${NC}"
 echo -e "${BIWhite}With Target${NC} ${BIYellow}$domen${NC}"
 sleep 8
 cd
-print_success "Slowdns"
+print_success "SlowDNS Manager"
 }
 function loading() {
   clear
   local pid=$1
-  local delay=0.1
+  local delay=0.5
   local spin='-\|/'
   while ps -p $pid > /dev/null; do
     local temp=${spin:0:1}
@@ -1084,7 +1049,7 @@ function loading() {
 }
 function memasang_udepe() {
 clear
-print_install "Memasang UDP Custom"
+print_install "Installing UDP Custom For HTTP Custom And Other"
 clear
 cd
 rm -rf /root/udp
@@ -1114,7 +1079,7 @@ EOF
 else
 cat <<EOF > /etc/systemd/system/udp-custom.service
 [Unit]
-Description=UDP CUSTOM BY LITE
+Description=UDP CUSTOM BY AWAN
 [Service]
 User=root
 Type=simple
@@ -1133,16 +1098,16 @@ echo -e "${BIWhite}enable service udp-custom${NC}"
 systemctl enable udp-custom &>/dev/null
 sleep 3 & loading $!
 cd
-print_success "UDP Custom"
+print_success "UDP Custom For HTTP Custom And Other"
 }
 function memasang_haproxy() {
 clear
-print_install "Memasang Haproxy"
+print_install "Installing HAProxy Load Balancer"
 if [ "$EUID" -ne 0 ]; then
   echo -e "${BIWhite}Jalankan script ini sebagai root!${NC}"
   exit 1
 fi
-echo -e "${BIWhite}✥Bersihkan HAProxy lama jika ada...${NC}"
+echo -e "${BIWhite}Remove Old HAProxy....${NC}"
 systemctl stop haproxy 2>/dev/null
 systemctl disable haproxy 2>/dev/null
 apt purge -y haproxy 2>/dev/null
@@ -1152,12 +1117,12 @@ rm -f /etc/haproxy/hap.pem
 rm -rf /etc/haproxy/errors
 rm -rf /var/lib/haproxy
 rm -f /run/haproxy.pid
-echo -e "${BIWhite}✥Instalasi ulang HAProxy...${NC}"
+echo -e "${BIWhite}Reinstall HAProxy${NC}"
 sudo apt update && sudo apt install haproxy -y
-echo -e "${BIWhite}✥Gabungkan sertifikat Xray ke /etc/haproxy/hap.pem...${NC}"
+echo -e "${BIWhite}Combine Cert XRay To /etc/haproxy/hap.pem...${NC}"
 mkdir -p /etc/haproxy
 cat /etc/xray/xray.crt /etc/xray/xray.key > /etc/haproxy/hap.pem
-echo -e "${BIWhite}✥Buat konfigurasi HAProxy baru...${NC}"
+echo -e "${BIWhite}Generate New Configuration HAProxy${NC}"
 cat > /etc/haproxy/haproxy.cfg << 'EOF'
 global
     stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
@@ -1237,136 +1202,31 @@ backend recir_https
     mode tcp
     server loopback-for-https abns@haproxy-https send-proxy-v2 check
 EOF
-echo -e "${BIWhite}✥Cek konfigurasi HAProxy...${NC}"
+echo -e "${BIWhite}Check Configuration HAProxy...${NC}"
 haproxy -c -f /etc/haproxy/haproxy.cfg
 if [ $? -eq 0 ]; then
-    echo -e "${BIWhite}✥Konfigurasi valid. Menyalakan HAProxy...${NC}"
+    echo -e "${BIWhite}Configuration Valid... Starting HAProy Service${NC}"
     systemctl restart haproxy
     systemctl enable haproxy
-    echo -e "${BIWhite}✥HAProxy berhasil dipasang dan diperbarui!${NC}"
+    echo -e "${BIWhite}HAProxy Succesfully Installing And Update${NC}"
 else
-    echo -e "${BIWhite}✥Konfigurasi tidak valid. Cek file: /etc/haproxy/haproxy.cfg${NC}"
+    echo -e "${BIWhite}Configuration invalid. Check file: /etc/haproxy/haproxy.cfg${NC}"
 fi
 systemctl restart haproxy
-print_success "Haproxy"
+print_success "HAProxy Load Balancer"
 }
 function memasang_index_page() {
   cat <<EOF > /var/www/html/index.html
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Di Pencet Ya Kak☺️</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Helvetica Neue', sans-serif;
-      background: linear-gradient(135deg, #e0f7fa, #ffffff);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    .card {
-      background: white;
-      padding: 40px;
-      max-width: 800px;
-      margin: 20px;
-      border-radius: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-      color: #333;
-    }
-
-    h1 {
-      text-align: center;
-      color: #00796b;
-      margin-bottom: 30px;
-      font-size: 2em;
-    }
-
-    p {
-      margin-bottom: 20px;
-      line-height: 1.8;
-      font-size: 1.05em;
-    }
-
-    strong {
-      color: #004d40;
-    }
-
-    em {
-      color: #555;
-      font-style: italic;
-    }
-
-    .footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 0.95em;
-      color: #777;
-    }
-
-    @media (max-width: 600px) {
-      .card {
-        padding: 25px;
-      }
-
-      h1 {
-        font-size: 1.5em;
-      }
-
-      p {
-        font-size: 1em;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>⚠️ WARNING ⚠️</h1>
-
-    <p><strong>"Ibadah dan pahalamu tidak bisa menyelamatkanmu dari Neraka.</strong><br>
-    Jika kamu bandingkan dengan nikmat yang Allah SWT berikan padamu.</p>
-
-    <p>Lebih besar yang mana?<br>
-    Lebih berat yang mana?</p>
-
-    <p>Saat kamu diciptakan, apakah itu bukan nikmat?<br>
-    Bahkan kematian pun adalah nikmat...!!!</p>
-
-    <p>Semua yang kamu alami adalah nikmat yang Allah SWT berikan untukmu.</p>
-
-    <p>Yang menyelamatkanmu adalah Allah SWT (rahmat-Nya atau disebut kasih sayang-Nya).</p>
-
-    <p>Hanya saja <strong>(berusahalah)</strong> untuk mendapatkan rahmat-Nya.<br>
-    kita harus beribadah, mengerjakan perintah-perintah-Nya dan menjauhi larangan-larangan-Nya.</p>
-
-    <p><strong>Beribadahlah</strong> semata-mata mengharapkan ridho-Nya, rahmat-Nya.</p>
-
-    <p><strong>Oleh sebab itu</strong>, janganlah berpikir ibadah dan pahala-mu bisa membawamu ke Surga dan menyelamatkanmu dari Neraka.</p>
-
-    <p><em>Inilah hal yang selama ini aku temukan dan tanamkan pada diriku.</em></p>
-
-    <p><strong>(Berusahalah semampumu & jika Allah SWT merahmatimu maka nantinya kamu bisa melampaui batasanmu)</strong></p>
-
-    <p>Semoga kita termasuk orang-orang beruntung yang mendapatkan Rahmat dan Kasih Sayang Allah SWT.</p>
-
-    <p><em>Saya bukan ustadz, masih fakir akan ilmu bahkan baca doa Yasinan aja masih lupa dan salah 😂.</em></p>
-
-    <p>Hanya saja aku merasa bahwa pemikiran yang aku tahu ini harus aku bagikan kepada orang lain.</p>
-
-    <div class="footer">
-      Semoga bermanfaat 🙏🙏🙏
-      Terima kasih atas sharingnya:<br />
-      <strong>@ahmadsohibulkahfi</strong>
-    </div>
-  </div>
-</body>
-</html>
+<h1>AIO V.1</h1>
 EOF
+}
+function tabel_version(){
+clear
+cat > /etc/stn_version << EOF
+LOCAL_VERSION="1.5.2"
+EOF
+echo -e "${BIWhite}Tabel Successfully Generated${NC}"
+sleep 1
 }
 function mulai_penginstallan(){
     clear
@@ -1383,7 +1243,6 @@ function mulai_penginstallan(){
     memasang_password_ssh
     memasang_sshd
     memasang_vnstat
-    memasang_pencadangan
     memasang_menu
     memasang_pembatas
     memasang_fail2ban
@@ -1399,9 +1258,9 @@ function mulai_penginstallan(){
     memasang_index_page
     memasang_restart
     memasang_notifikasi_bot
+    tabel_version
 }
 mulai_penginstallan
-echo "VERSION_LOCAL="1.4.2"" >/etc/stn_version
 history -c
 rm -rf /root/menu
 rm -rf /root/*.zip

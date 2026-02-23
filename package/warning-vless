@@ -13,18 +13,18 @@ function send-ip() {
     TIME="10"
     URL="https://api.telegram.org/bot$KEY/sendMessage"
     TEXT="
-<code>────────────────────</code>
-<b>⚠️ NOTIFICATIONS ⚠️</b>
-<code>────────────────────</code>
-<b>» Protocol:</b> <code>vless</code>
-<b>» User:</b> <code>${user}</code>
-<b>» Limit IP:</b> <code>${limit_ip} IP</code>
-<b>» IP Login:</b> <code>${login_count} IP</code>
-<b>» Status:</b> <code>User telah dikunci</code>
-<b>» Durasi Penguncian 5 Menit</b>
-<code>────────────────────</code>
-<b>» 🤖 Awokawok Kena Lock...</b>
-<code>────────────────────</code>
+══════════════════════════
+   ⚠️  LOCK NOTIFICATION  
+══════════════════════════
+🔒 Protocol : <b>vless</b>       
+👤 User     : <code>${user}</code>    
+🎯 Limit IP : <code>${limit_ip}</code>    
+📍 IP Login : <code>${login_count}</code>    
+⚡ Status   : <code>🔴 Terkunci</code>
+⏱️ Durasi   : <b>5 Menit</b>      
+══════════════════════════
+⚡ SMART NOTIF SERVER ⚡   
+══════════════════════════
 "
     curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
@@ -35,14 +35,16 @@ function send-unban-notif() {
     TIME="10"
     URL="https://api.telegram.org/bot$KEY/sendMessage"
     TEXT="
-<code>────────────────────</code>
-<b>❇️ NOTIFICATIONS ❇️</b>
-<code>────────────────────</code>
-<b>» Protocol:</b> <code>vless</code>
-<b>» User:</b> <code>${unlocked_user}</code>
-<b>» Status:</b> <code>Telah Bebas Dari Penguncian</code>
-<b>» 🤖 Jangan Multi Login Lagi Ya Kak.</b>
-<code>────────────────────</code>
+══════════════════════════
+   🔓 UNLOCK NOTIFICATION  
+══════════════════════════
+🔒 Protocol : <b>vless</b>       
+👤 User     : <code>${unlocked_user}</code>    
+⚡ Status   : <code>✅ Bebas Dari Kuncian</code>
+💬 Message  : <i>Gunakan sesuai aturan</i>
+══════════════════════════
+⚡ SMART NOTIF SERVER ⚡   
+══════════════════════════
 "
     curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }

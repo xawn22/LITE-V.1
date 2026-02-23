@@ -12,17 +12,19 @@ function send-log-quota() {
     TIME="10"
     URL="https://api.telegram.org/bot$KEY/sendMessage"
     TEXT="
-<code>────────────────────</code>
-<b>⚠️ NOTIF QUOTA HABIS⚠️</b>
-<code>────────────────────</code>
-<b>Protocol:</b> <code>shadowsocks</code>
-<b>User:</b> <code>${user}</code>
-<b>Limit Quota:</b> <code>${limitku}</code>
-<b>Usage Quota:</b> <code>${total}</code>
-<b>Status:</b> <code>User telah di banned</code>
-<code>────────────────────</code>
-<b>🤖 Users who exceed their Quota limit will be banned</b>
-<code>────────────────────</code>
+══════════════════════════
+   ⚠️  QUOTA NOTIFICATION  
+══════════════════════════
+🔒 Protocol : <b>shadowsocks</b>       
+👤 User     : <code>${user}</code>    
+📊 Limit    : <code>${limitku}</code>    
+📈 Usage    : <code>${total}</code>    
+⚡ Status   : <code>🔴 User Dibanned</code>
+══════════════════════════
+💬 <i>Batas terlampaui.!!!</i>
+══════════════════════════
+⚡ SMART NOTIF SERVER ⚡   
+══════════════════════════
 "
     curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
@@ -30,13 +32,13 @@ function send-log-quota() {
 function con() {
     local -i bytes=$1
     if [[ $bytes -lt 1024 ]]; then
-        echo "${bytes}B"
+        echo "${bytes} B"
     elif [[ $bytes -lt 1048576 ]]; then
-        echo "$(( (bytes + 1023)/1024 ))KB"
+        echo "$(printf "%.1f" "$(echo "scale=1; $bytes/1024" | bc)") KB"
     elif [[ $bytes -lt 1073741824 ]]; then
-        echo "$(( (bytes + 1048575)/1048576 ))MB"
+        echo "$(printf "%.1f" "$(echo "scale=1; $bytes/1048576" | bc)") MB"
     else
-        echo "$(( (bytes + 1073741823)/1073741824 ))GB"
+        echo "$(printf "%.1f" "$(echo "scale=1; $bytes/1073741824" | bc)") GB"
     fi
 }
 

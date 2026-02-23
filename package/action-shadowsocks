@@ -2,10 +2,13 @@
 LOCK_FILE="/etc/user_locks.db"
 XRAY_CONFIG="/etc/xray/config.json"
 BACKUP_DIR="/etc/xray/backups"
-mkdir -p /etc/xray/backups
+mkdir -p "$BACKUP_DIR"
 mkdir -p /etc/shadowsocks/
 mkdir -p /etc/limit/shadowsocks/ip/
 
+# ============================================
+# FUNGSI SEND NOTIF QUOTA
+# ============================================
 function send-log-quota() {
     CHATID=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 3)
     KEY=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 2)
@@ -29,6 +32,9 @@ function send-log-quota() {
     curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
 
+# ============================================
+# FUNGSI CONVERT SIZE
+# ============================================
 function con() {
     local -i bytes=$1
     if [[ $bytes -lt 1024 ]]; then
@@ -42,6 +48,9 @@ function con() {
     fi
 }
 
+# ============================================
+# FUNGSI MODIFY XRAY CONFIG (LOCK/UNLOCK)
+# ============================================
 function modify_xray_config() {
     local action="$1"
     local user="$2"
@@ -49,71 +58,121 @@ function modify_xray_config() {
     local marker="#@& $user"
 
     if [[ $action == "lock" ]]; then
-        # Backup configuration file
-        cp $XRAY_CONFIG "$BACKUP_DIR/config.json.bak"
+        # Backup per user (dengan timestamp)
+        local backup_file="$BACKUP_DIR/config.json.$user.$(date +%Y%m%d-%H%M%S).bak"
+        cp "$XRAY_CONFIG" "$backup_file"
+        echo -e "✅ Backup created: $(basename $backup_file)"
+        
         # Remove user entry from configuration
-        sed -i "/^${marker}/,/^},{/d" $XRAY_CONFIG
+        sed -i "/^${marker}/,/^},{/d" "$XRAY_CONFIG"
+        
         # Remove user from the shadowsocks database
         sed -i "/^#@& $user /d" /etc/shadowsocks/.shadowsocks.db
-        echo -e "User '${user}' on protocol '${protocol}' has been locked."
+        echo -e "🔒 User '$user' on protocol '$protocol' has been locked."
+
     elif [[ $action == "unlock" ]]; then
-        # Restore from backup if it exists
-        if [[ -f "$BACKUP_DIR/config.json.bak" ]]; then
-            cp "$BACKUP_DIR/config.json.bak" $XRAY_CONFIG
-            echo -e "User '${user}' on protocol '${protocol}' has been restored from the backup."
+        # Cari backup khusus untuk user ini (paling baru)
+        local user_backup=$(ls -t "$BACKUP_DIR"/config.json."$user".*.bak 2>/dev/null | head -1)
+        
+        if [[ -f "$user_backup" ]]; then
+            cp "$user_backup" "$XRAY_CONFIG"
+            echo -e "✅ Restored from: $(basename $user_backup)"
+            
+            # Hapus backup setelah restore (biar ga numpuk)
+            rm -f "$user_backup"
+            echo -e "🧹 Backup file deleted"
+            
         else
-            echo -e "Backup not found! Failed to unlock user '${user}'."
+            echo -e "❌ Backup not found for user '$user'!"
+            echo -e "   Mencari backup terakhir..."
+            
+            # Fallback ke backup terakhir (jika ada)
+            local latest_backup=$(ls -t "$BACKUP_DIR"/config.json.*.bak 2>/dev/null | head -1)
+            if [[ -f "$latest_backup" ]]; then
+                echo -e "⚠️  Using fallback: $(basename $latest_backup)"
+                cp "$latest_backup" "$XRAY_CONFIG"
+            else
+                echo -e "❌ No backup found at all!"
+                return 1
+            fi
         fi
     fi
 }
 
+# ============================================
+# FUNGSI LOCK USER
+# ============================================
 function lock_user() {
     local user="$1"
     if [[ -z "$user" ]]; then
-        echo -e "Username cannot be empty!"
+        echo -e "❌ Username cannot be empty!"
         return
     fi
 
     # Check if already locked
     if grep -qw "shadowsocks:${user}" "$LOCK_FILE"; then
-        echo -e "User '${user}' on shadowsocks is already locked!"
+        echo -e "⚠️ User '$user' on shadowsocks is already locked!"
         return
     fi
 
     # Add to lock file
     echo "shadowsocks:${user}" >> "$LOCK_FILE"
-    modify_xray_config "lock" "$user"
-    reload_services
+    
+    # Lock user
+    if modify_xray_config "lock" "$user"; then
+        reload_services
+        echo -e "✅ User '$user' successfully locked."
+    else
+        echo -e "❌ Failed to lock user '$user'."
+        # Rollback: hapus dari lock file
+        sed -i "/^shadowsocks:${user}$/d" "$LOCK_FILE"
+    fi
 }
 
+# ============================================
+# FUNGSI UNLOCK USER
+# ============================================
 function unlock_user() {
     local user="$1"
     if [[ -z "$user" ]]; then
-        echo -e "Username cannot be empty!"
+        echo -e "❌ Username cannot be empty!"
         return
     fi
 
-    # Check if the user is not locked
+    # Check if the user is locked
     if ! grep -qw "shadowsocks:${user}" "$LOCK_FILE"; then
-        echo -e "User '${user}' on shadowsocks is not locked."
+        echo -e "⚠️ User '$user' on shadowsocks is not locked."
         return
     fi
 
-    # Remove from lock file
-    sed -i "/^shadowsocks:${user}$/d" "$LOCK_FILE"
-    modify_xray_config "unlock" "$user"
-    reload_services
+    # Unlock user
+    if modify_xray_config "unlock" "$user"; then
+        # Remove from lock file
+        sed -i "/^shadowsocks:${user}$/d" "$LOCK_FILE"
+        reload_services
+        echo -e "✅ User '$user' successfully unlocked."
+    else
+        echo -e "❌ Failed to unlock user '$user'."
+    fi
 }
 
+# ============================================
+# FUNGSI RELOAD SERVICES
+# ============================================
 function reload_services() {
-    systemctl restart xray >> /dev/null 2>&1
+    systemctl restart xray > /dev/null 2>&1
+    echo -e "🔄 Xray service restarted."
 }
 
+# ============================================
+# FUNGSI AUTO-LOCK BERDASARKAN QUOTA
+# ============================================
 function memulai_pengecekan() {
     sleep 30
     data=($(grep '^#@&' /etc/xray/config.json | cut -d ' ' -f 2 | sort | uniq))
     [[ ! -e /etc/limit/shadowsocks ]] && mkdir -p /etc/limit/shadowsocks
 
+    # Collect usage data
     for user in "${data[@]}"; do
         xray api stats --server=127.0.0.1:10000 -name "user>>>${user}>>>traffic>>>downlink" >& /tmp/${user}
         getThis=$(awk '{print $1}' /tmp/${user})
@@ -135,7 +194,7 @@ function memulai_pengecekan() {
         fi
     done
 
-    # Check user accounts
+    # Check quota and lock if exceeded
     for user in "${data[@]}"; do
         if [[ -e /etc/shadowsocks/${user} ]]; then
             checkLimit=$(cat /etc/shadowsocks/${user})
@@ -152,8 +211,48 @@ function memulai_pengecekan() {
                 fi
             fi
         fi
-        
     done 
 }
 
-memulai_pengecekan
+# ============================================
+# MAIN EXECUTION
+# ============================================
+# Jika script ini dijalankan langsung (bukan di-source)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    case "$1" in
+        start)
+            echo -e "🚀 Starting auto-lock monitoring for Shadowsocks..."
+            while true; do
+                memulai_pengecekan
+                sleep 60
+            done
+            ;;
+        lock)
+            shift
+            if [[ $# -eq 0 ]]; then
+                echo "Usage: $0 lock <user1> [user2] ..."
+                exit 1
+            fi
+            for user in "$@"; do
+                lock_user "$user"
+            done
+            ;;
+        unlock)
+            shift
+            if [[ $# -eq 0 ]]; then
+                echo "Usage: $0 unlock <user1> [user2] ..."
+                exit 1
+            fi
+            for user in "$@"; do
+                unlock_user "$user"
+            done
+            ;;
+        *)
+            echo "Usage: $0 {start|lock <user>|unlock <user>}"
+            echo "  start   : Jalankan monitoring auto-lock"
+            echo "  lock    : Lock user manual"
+            echo "  unlock  : Unlock user manual"
+            exit 1
+            ;;
+    esac
+fi

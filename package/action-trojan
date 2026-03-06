@@ -217,33 +217,4 @@ function memulai_pengecekan() {
     done 
 }
 
-# ============================================
-# MAIN EXECUTION (JIKA DIJALANKAN LANGSUNG)
-# ============================================
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    case "$1" in
-        start)
-            echo -e "🚀 Starting auto-lock monitoring..."
-            while true; do
-                memulai_pengecekan
-                sleep 60
-            done
-            ;;
-        lock)
-            shift
-            for user in "$@"; do
-                lock_user "$user"
-            done
-            ;;
-        unlock)
-            shift
-            for user in "$@"; do
-                unlock_user "$user"
-            done
-            ;;
-        *)
-            echo "Usage: $0 {start|lock <user>|unlock <user>}"
-            exit 1
-            ;;
-    esac
-fi
+memulai_pengecekan

@@ -214,45 +214,4 @@ function memulai_pengecekan() {
     done 
 }
 
-# ============================================
-# MAIN EXECUTION
-# ============================================
-# Jika script ini dijalankan langsung (bukan di-source)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    case "$1" in
-        start)
-            echo -e "🚀 Starting auto-lock monitoring for VLess..."
-            while true; do
-                memulai_pengecekan
-                sleep 60
-            done
-            ;;
-        lock)
-            shift
-            if [[ $# -eq 0 ]]; then
-                echo "Usage: $0 lock <user1> [user2] ..."
-                exit 1
-            fi
-            for user in "$@"; do
-                lock_user "$user"
-            done
-            ;;
-        unlock)
-            shift
-            if [[ $# -eq 0 ]]; then
-                echo "Usage: $0 unlock <user1> [user2] ..."
-                exit 1
-            fi
-            for user in "$@"; do
-                unlock_user "$user"
-            done
-            ;;
-        *)
-            echo "Usage: $0 {start|lock <user>|unlock <user>}"
-            echo "  start   : Jalankan monitoring auto-lock"
-            echo "  lock    : Lock user manual"
-            echo "  unlock  : Unlock user manual"
-            exit 1
-            ;;
-    esac
-fi
+memulai_pengecekan

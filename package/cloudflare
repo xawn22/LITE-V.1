@@ -13,9 +13,9 @@ echo -e "${BIWhite}┌───────────────────�
 echo -e "${LIME}          Setup Subdomain Menu        ${NC}"
 echo -e "${BIWhite}└──────────────────────────────────────┘${NC}"
 
-DOMAIN=liteon.biz.id
-CF_KEY=99a7300e16ffd81ecd1331e8f92d92ceb309c
-CF_ID=bukanhanyaklik@gmail.com
+DOMAIN=kosong.h
+CF_KEY=kzskksksskks
+CF_ID=kosong@gmail.com
 set -euo pipefail
 
 ZONE=$(curl -sLX GET "https://api.cloudflare.com/client/v4/zones?name=${DOMAIN}&status=active" \

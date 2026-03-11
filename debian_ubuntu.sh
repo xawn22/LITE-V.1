@@ -823,7 +823,7 @@ function memasang_menu(){
     clear
     print_install "Installing UI AutoScript AIO V.1"
     wget -q ${REPO}depedency.zip
-    unzip -P XyZz22MyYz depedency.zip 
+    unzip -P aiov1josgank22 depedency.zip 
     chmod +x menu/*
     mv menu/* /usr/local/sbin
     sleep 2
@@ -1228,6 +1228,11 @@ EOF
 echo -e "${BIWhite}Tabel Successfully Generated${NC}"
 sleep 1
 }
+function botvpn_install(){
+clear
+wget https://raw.githubusercontent.com/xawn22/mini-botvpn/main/start-minibot.sh
+bash start-minibot.sh
+}
 function mulai_penginstallan(){
     clear
     setup_grub_env
@@ -1259,6 +1264,7 @@ function mulai_penginstallan(){
     memasang_restart
     memasang_notifikasi_bot
     tabel_version
+	botvpn_install
 }
 mulai_penginstallan
 history -c

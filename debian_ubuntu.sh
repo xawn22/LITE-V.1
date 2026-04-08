@@ -845,6 +845,14 @@ fi
 mesg n || true
 menu
 EOF
+
+cat >/etc/cron.d/mybotvpn <<-END
+		SHELL=/bin/sh
+		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+		*/12 * * * * root /usr/local/sbin/bot-expuser
+        30 5 * * * root /usr/local/sbin/bot-renew
+	END
+	
 cat >/etc/cron.d/xp_all <<-END
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin

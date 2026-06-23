@@ -926,30 +926,38 @@ function memasang_dropbear(){
     # Install dependensi build
     apt -y install build-essential wget zlib1g-dev libssl-dev libc6-dev make gcc
 
-    # Compile Dropbear 2019.78
-    BUILD_DIR="/tmp/dropbear-build"
-    rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
-    wget -q -O "$BUILD_DIR/dropbear-2019.78.tar.bz2" \
-        "https://matt.ucc.asn.au/dropbear/releases/dropbear-2019.78.tar.bz2"
-    cd "$BUILD_DIR"
+    # Compile Dropbear 2019.78 & simpan binary
+    cd /tmp
+    wget -q -O dropbear-2019.78.tar.bz2 https://matt.ucc.asn.au/dropbear/releases/dropbear-2019.78.tar.bz2
     tar -xjf dropbear-2019.78.tar.bz2
     cd dropbear-2019.78
-    ./configure --prefix=/usr --sysconfdir=/etc/dropbear \
-        --disable-zlib --enable-bundled-libtom 2>/dev/null
+    ./configure --prefix=/usr --sysconfdir=/etc/dropbear --disable-zlib --enable-bundled-libtom 2>/dev/null
     make PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp" -j$(nproc) 2>/dev/null
-    make install 2>/dev/null
-    cd /root && rm -rf "$BUILD_DIR"
+    cp dropbear /tmp/dropbear-2019-bin
+    cd /tmp && rm -rf dropbear-2019.78 dropbear-2019.78.tar.bz2
+
+    # Install via apt untuk dapat init.d & service
+    apt -y install dropbear
+
+    # Stop lalu replace binary apt dengan binary 2019
+    systemctl stop dropbear
+    service dropbear stop
+    cp /tmp/dropbear-2019-bin /usr/sbin/dropbear
+    chmod +x /usr/sbin/dropbear
+    rm -f /tmp/dropbear-2019-bin
 
     # Generate host keys
     mkdir -p /etc/dropbear
-    /usr/bin/dropbearkey -t rsa -s 2048 \
-        -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
-    /usr/bin/dropbearkey -t ed25519 \
-        -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
+    /usr/bin/dropbearkey -t rsa -s 2048 -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
+    /usr/bin/dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
 
-    # Download config & banner dari REPO (tidak berubah)
+    # Hapus config lama lalu tulis baru dari REPO
+    rm -f /etc/default/dropbear
     wget -q -O /etc/default/dropbear "${REPO}config/dropbear.conf"
     chmod +x /etc/default/dropbear
+
+    # Hapus banner lama lalu download baru dari REPO
+    rm -f /etc/banner-ssh.txt
     wget -q -O /etc/banner-ssh.txt "${REPO}package/issue.net"
     chmod +x /etc/banner-ssh.txt
     echo "Banner /etc/banner-ssh.txt" >> /etc/ssh/sshd_config

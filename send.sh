@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ============================================================
-#           GITHUB BACKUP MANAGER
-#   Auto Backup + Restore dengan enkripsi ZIP & password
+#           GITHUB BACKUP MANAGER v2.0
+#   Auto Backup + Restore langsung dari GitHub
 # ============================================================
 
 # ── KONFIGURASI ─────────────────────────────────────────────
@@ -25,11 +25,9 @@ NC='\033[0m'
 BOLD='\033[1m'
 # ────────────────────────────────────────────────────────────
 
-# ── LOAD CONFIG ──────────────────────────────────────────────
+# ── LOAD / SAVE CONFIG ───────────────────────────────────────
 load_config() {
-    if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
-    fi
+    [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 }
 
 save_config() {
@@ -45,43 +43,49 @@ EOF
     chmod 600 "$CONFIG_FILE"
 }
 
-# ── FUNGSI LOG ───────────────────────────────────────────────
+# ── LOG ──────────────────────────────────────────────────────
 log() {
-    local level="$1"
-    local message="$2"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] $2" >> "$LOG_FILE"
 }
 
 # ── HEADER ───────────────────────────────────────────────────
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${WHITE}${BOLD}           GITHUB BACKUP MANAGER v1.0                ${NC}${BLUE}║${NC}"
+    echo -e "${BLUE}║${WHITE}${BOLD}          GITHUB BACKUP MANAGER v2.0                 ${NC}${BLUE}║${NC}"
     echo -e "${BLUE}╠══════════════════════════════════════════════════════╣${NC}"
-
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
-        echo -e "${BLUE}║${NC} ${CYAN}Repo  :${NC} ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}                "
-        echo -e "${BLUE}║${NC} ${CYAN}Branch:${NC} ${GITHUB_BRANCH:-main}                               "
-        echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
+        echo -e "${BLUE}║${NC} ${CYAN}Repo  :${NC} ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
+        echo -e "${BLUE}║${NC} ${CYAN}Branch:${NC} ${GITHUB_BRANCH:-main}"
     else
-        echo -e "${BLUE}║${NC} ${YELLOW}⚠  Belum dikonfigurasi. Pilih menu Setup dulu.${NC}       "
-        echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
+        echo -e "${BLUE}║${NC} ${YELLOW}⚠  Belum dikonfigurasi. Pilih menu Setup dulu.${NC}"
     fi
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 # ── CEK DEPENDENSI ───────────────────────────────────────────
 check_deps() {
     local missing=()
-    for cmd in git zip unzip curl; do
+    for cmd in git zip unzip curl jq; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
-
     if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "${YELLOW}📦 Menginstall dependensi yang kurang: ${missing[*]}${NC}"
-        apt-get install -y "${missing[@]}" -qq
+        echo -e "${YELLOW}📦 Menginstall: ${missing[*]}${NC}"
+        apt-get install -y "${missing[@]}" -qq 2>/dev/null
     fi
+}
+
+# ── TELEGRAM ─────────────────────────────────────────────────
+send_telegram() {
+    local message="$1"
+    [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_USER_ID" ] && return 0
+    curl -s -o /dev/null \
+        "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+        -d "chat_id=${TG_USER_ID}" \
+        -d "text=${message}" \
+        -d "parse_mode=Markdown"
 }
 
 # ════════════════════════════════════════════════════════════
@@ -93,115 +97,86 @@ setup_github() {
     echo -e "${CYAN}─────────────────────────────────────────────${NC}"
     echo ""
 
-    # Username
-    read -rp "$(echo -e "${WHITE}GitHub Username : ${NC}")" GITHUB_USERNAME
-    # Repo name
-    read -rp "$(echo -e "${WHITE}Nama Repository : ${NC}")" GITHUB_REPO_NAME
-    # Branch
-    read -rp "$(echo -e "${WHITE}Branch [main]   : ${NC}")" GITHUB_BRANCH
+    read -rp "$(echo -e "${WHITE}GitHub Username       : ${NC}")" GITHUB_USERNAME
+    read -rp "$(echo -e "${WHITE}Nama Repository       : ${NC}")" GITHUB_REPO_NAME
+    read -rp "$(echo -e "${WHITE}Branch [main]         : ${NC}")" GITHUB_BRANCH
     GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 
-    # Token
     echo ""
-    echo -e "${YELLOW}Dapatkan token di: GitHub → Settings → Developer Settings${NC}"
-    echo -e "${YELLOW}→ Personal Access Tokens (classic) → centang 'repo'${NC}"
+    echo -e "${YELLOW}Token: GitHub → Settings → Developer Settings → Personal Access Tokens (classic) → centang 'repo'${NC}"
     echo ""
-    read -rsp "$(echo -e "${WHITE}Personal Access Token : ${NC}")" GITHUB_TOKEN
+    read -rp "$(echo -e "${WHITE}Personal Access Token : ${NC}")" GITHUB_TOKEN
     echo ""
 
-    # ZIP Password
     echo ""
-    read -rsp "$(echo -e "${WHITE}Password ZIP backup   : ${NC}")" ZIP_PASSWORD
+    read -rp "$(echo -e "${WHITE}Password ZIP backup   : ${NC}")" ZIP_PASSWORD
     echo ""
 
-    # Telegram Notifikasi
     echo ""
     echo -e "${YELLOW}Notifikasi Telegram (opsional, Enter untuk skip):${NC}"
-    echo -e "${YELLOW}Buat bot via @BotFather → dapatkan token & user ID via @userinfobot${NC}"
+    echo -e "${YELLOW}Bot Token → @BotFather | User ID → @userinfobot${NC}"
     echo ""
-    read -rsp "$(echo -e "${WHITE}Telegram Bot Token    : ${NC}")" TG_BOT_TOKEN
+    read -rp "$(echo -e "${WHITE}Telegram Bot Token    : ${NC}")" TG_BOT_TOKEN
     echo ""
     read -rp  "$(echo -e "${WHITE}Telegram User ID      : ${NC}")" TG_USER_ID
 
-    # Simpan token
+    # Simpan token & config
     echo "$GITHUB_TOKEN" > "$TOKEN_FILE"
     chmod 600 "$TOKEN_FILE"
-
-    # Path repo lokal
     LOCAL_REPO="$HOME/github_backup_repo"
-
-    # Simpan config
     save_config
 
-    # Test notif Telegram jika diisi
+    # Test Telegram
     if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_USER_ID" ]; then
         echo ""
-        echo -e "${CYAN}📨 Mengirim pesan test ke Telegram...${NC}"
-        local test_msg="✅ *Backup Manager Terhubung!*%0ASetup berhasil dikonfigurasi di server ini."
-        local test_resp
-        test_resp=$(curl -s -o /dev/null -w "%{http_code}"             "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage"             -d "chat_id=${TG_USER_ID}&text=${test_msg}&parse_mode=Markdown")
-        if [ "$test_resp" == "200" ]; then
-            echo -e "${GREEN}✓ Notifikasi Telegram berhasil dikirim!${NC}"
-        else
-            echo -e "${YELLOW}⚠ Gagal kirim test Telegram (HTTP $test_resp). Cek bot token & user ID.${NC}"
-        fi
+        echo -e "${CYAN}📨 Test notifikasi Telegram...${NC}"
+        local resp
+        resp=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TG_USER_ID}&text=✅ Backup Manager terhubung!&parse_mode=Markdown")
+        [ "$resp" == "200" ] \
+            && echo -e "${GREEN}✓ Telegram berhasil!${NC}" \
+            || echo -e "${YELLOW}⚠ Gagal (HTTP $resp). Cek bot token & user ID.${NC}"
     fi
 
     echo ""
     echo -e "${CYAN}─────────────────────────────────────────────${NC}"
-    echo -e "${WHITE}🔧 Menginisialisasi repository lokal...${NC}"
+    echo -e "${WHITE}🔧 Inisialisasi repository lokal...${NC}"
 
-    # Clone atau init repo
+    local REMOTE_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+
     if [ -d "$LOCAL_REPO/.git" ]; then
         echo -e "${GREEN}✓ Repo lokal sudah ada.${NC}"
+        cd "$LOCAL_REPO" || exit 1
+        git remote set-url origin "$REMOTE_URL"
     else
         mkdir -p "$LOCAL_REPO"
         cd "$LOCAL_REPO" || exit 1
-
-        REMOTE_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
-
-        # Coba clone dulu
         if git clone "$REMOTE_URL" . 2>/dev/null; then
-            echo -e "${GREEN}✓ Repository berhasil di-clone dari GitHub.${NC}"
+            echo -e "${GREEN}✓ Repo berhasil di-clone dari GitHub.${NC}"
         else
-            # Jika repo belum ada di GitHub, init baru
-            git init
+            git init -q
             git checkout -b "$GITHUB_BRANCH" 2>/dev/null || true
             echo "# Backup Repository" > README.md
             git add README.md
             git config user.email "backup@server.local"
             git config user.name "Backup Manager"
-            git commit -m "🚀 Initial commit"
+            git commit -m "🚀 Initial commit" -q
             git remote add origin "$REMOTE_URL"
-            git push -u origin "$GITHUB_BRANCH" 2>/dev/null && \
-                echo -e "${GREEN}✓ Repository baru berhasil dibuat di GitHub.${NC}" || \
-                echo -e "${YELLOW}⚠ Buat repo '${GITHUB_REPO_NAME}' dulu di GitHub secara manual, lalu jalankan setup lagi.${NC}"
+            git push -u origin "$GITHUB_BRANCH" -q 2>/dev/null \
+                && echo -e "${GREEN}✓ Repo baru dibuat di GitHub.${NC}" \
+                || echo -e "${YELLOW}⚠ Buat repo '${GITHUB_REPO_NAME}' dulu di GitHub, lalu jalankan setup lagi.${NC}"
         fi
     fi
 
-    # Set git config
-    cd "$LOCAL_REPO" || exit 1
     git config user.email "backup@server.local"
     git config user.name "Backup Manager"
 
     echo ""
-    echo -e "${GREEN}✅ Setup berhasil!${NC}"
-    log "INFO" "Setup GitHub selesai: ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
+    echo -e "${GREEN}✅ Setup selesai!${NC}"
+    log "INFO" "Setup selesai: ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
     echo ""
     read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
-}
-
-# ════════════════════════════════════════════════════════════
-#  FUNGSI NOTIFIKASI TELEGRAM
-# ════════════════════════════════════════════════════════════
-send_telegram() {
-    local message="$1"
-
-    if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_USER_ID" ]; then
-        return 0  # Skip jika tidak dikonfigurasi
-    fi
-
-    curl -s -o /dev/null         "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage"         -d "chat_id=${TG_USER_ID}"         -d "text=${message}"         -d "parse_mode=Markdown"
 }
 
 # ════════════════════════════════════════════════════════════
@@ -212,37 +187,37 @@ do_backup() {
     check_deps
 
     if [ -z "$GITHUB_USERNAME" ] || [ -z "$GITHUB_REPO_NAME" ]; then
-        echo -e "${RED}❌ Belum dikonfigurasi! Jalankan Setup dulu.${NC}"
+        echo -e "${RED}❌ Belum dikonfigurasi!${NC}"
         return 1
     fi
 
-    local TIMESTAMP
+    local TIMESTAMP BACKUP_FILENAME STAGE_DIR
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    local BACKUP_FILENAME="${BACKUP_PREFIX}_${TIMESTAMP}.zip"
-    local STAGE_DIR="${BACKUP_DIR}/${TIMESTAMP}"
+    BACKUP_FILENAME="${BACKUP_PREFIX}_${TIMESTAMP}.zip"
+    STAGE_DIR="${BACKUP_DIR}/${TIMESTAMP}"
 
     echo -e "${CYAN}📂 Mengumpulkan file backup...${NC}"
     mkdir -p "$STAGE_DIR"
 
-    # ── COPY FILE BACKUP ─────────────────────────────────────
-    cp /etc/passwd        "$STAGE_DIR/"          &>/dev/null
-    cp /etc/group         "$STAGE_DIR/"          &>/dev/null
-    cp /etc/shadow        "$STAGE_DIR/"          &>/dev/null
-    cp /etc/gshadow       "$STAGE_DIR/"          &>/dev/null
-    cp /etc/crontab       "$STAGE_DIR/"          &>/dev/null
-    cp /etc/vmess/.vmess.db         "$STAGE_DIR/" &>/dev/null
-    cp /etc/vless/.vless.db         "$STAGE_DIR/" &>/dev/null
-    cp /etc/trojan/.trojan.db       "$STAGE_DIR/" &>/dev/null
-    cp /etc/shadowsocks/.shadowsocks.db "$STAGE_DIR/" &>/dev/null
-    cp -r /etc/limit      "$STAGE_DIR/limit"     &>/dev/null
-    cp -r /etc/vmess      "$STAGE_DIR/vmess"     &>/dev/null
-    cp -r /etc/trojan     "$STAGE_DIR/trojan"    &>/dev/null
-    cp -r /etc/vless      "$STAGE_DIR/vless"     &>/dev/null
-    cp -r /etc/shadowsocks "$STAGE_DIR/shadowsocks" &>/dev/null
-    cp -r /etc/xray       "$STAGE_DIR/xray"      &>/dev/null
-    cp -r /etc/conf       "$STAGE_DIR/conf"      &>/dev/null
-    cp -r /var/www/html/  "$STAGE_DIR/html"      &>/dev/null
-    cp -a /detail/        "$STAGE_DIR/detail"    &>/dev/null
+    # ── COPY FILE ────────────────────────────────────────────
+    cp /etc/passwd                       "$STAGE_DIR/"              &>/dev/null
+    cp /etc/group                        "$STAGE_DIR/"              &>/dev/null
+    cp /etc/shadow                       "$STAGE_DIR/"              &>/dev/null
+    cp /etc/gshadow                      "$STAGE_DIR/"              &>/dev/null
+    cp /etc/crontab                      "$STAGE_DIR/"              &>/dev/null
+    cp /etc/vmess/.vmess.db              "$STAGE_DIR/.vmess.db"     &>/dev/null
+    cp /etc/vless/.vless.db              "$STAGE_DIR/.vless.db"     &>/dev/null
+    cp /etc/trojan/.trojan.db            "$STAGE_DIR/.trojan.db"    &>/dev/null
+    cp /etc/shadowsocks/.shadowsocks.db  "$STAGE_DIR/.shadowsocks.db" &>/dev/null
+    cp -r /etc/limit                     "$STAGE_DIR/limit"         &>/dev/null
+    cp -r /etc/vmess                     "$STAGE_DIR/vmess"         &>/dev/null
+    cp -r /etc/trojan                    "$STAGE_DIR/trojan"        &>/dev/null
+    cp -r /etc/vless                     "$STAGE_DIR/vless"         &>/dev/null
+    cp -r /etc/shadowsocks               "$STAGE_DIR/shadowsocks"   &>/dev/null
+    cp -r /etc/xray                      "$STAGE_DIR/xray"          &>/dev/null
+    cp -r /etc/conf                      "$STAGE_DIR/conf"          &>/dev/null
+    cp -r /var/www/html/                 "$STAGE_DIR/html"          &>/dev/null
+    cp -a /detail/                       "$STAGE_DIR/detail"        &>/dev/null
     # ─────────────────────────────────────────────────────────
 
     echo -e "${CYAN}🔐 Membuat ZIP terenkripsi...${NC}"
@@ -258,14 +233,13 @@ do_backup() {
     rm -rf "$STAGE_DIR"
     echo -e "${GREEN}✓ Backup dibuat: ${BACKUP_FILENAME}${NC}"
 
-    # ── PUSH BACKUP BARU KE GITHUB ───────────────────────────
-    echo -e "${CYAN}☁  Push backup baru ke GitHub...${NC}"
+    # ── PUSH KE GITHUB ───────────────────────────────────────
+    echo -e "${CYAN}☁  Push ke GitHub...${NC}"
     cd "$LOCAL_REPO" || return 1
 
     local GITHUB_TOKEN
     GITHUB_TOKEN=$(cat "$TOKEN_FILE")
     git remote set-url origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
-
     git checkout "$GITHUB_BRANCH" 2>/dev/null || git checkout -b "$GITHUB_BRANCH"
     git add "${BACKUP_FILENAME}"
     git commit -m "🔄 Auto backup: $TIMESTAMP" -q
@@ -277,76 +251,69 @@ do_backup() {
         return 1
     fi
 
+    git remote set-url origin "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
     echo -e "${GREEN}✅ Backup berhasil di-push ke GitHub!${NC}"
     log "INFO" "Backup sukses: $BACKUP_FILENAME"
 
-    # ── KIRIM NOTIFIKASI TELEGRAM ────────────────────────────
-    local SERVER_IP
-    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-    local SERVER_DOMAIN
+    # ── NOTIFIKASI TELEGRAM ──────────────────────────────────
+    local SERVER_IP SERVER_DOMAIN BACKUP_DATE
+    SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
     SERVER_DOMAIN=$(hostname -f 2>/dev/null || hostname)
-    local BACKUP_DATE
     BACKUP_DATE=$(date +"%d-%m-%Y %H:%M:%S")
 
-    local TG_MESSAGE
-    TG_MESSAGE="🔄 *AUTO BACKUP BERHASIL*
+    send_telegram "🔄 *AUTO BACKUP BERHASIL*
 ━━━━━━━━━━━━━━━━━━━━
 📅 *Tanggal* : ${BACKUP_DATE}
 🌐 *Domain*  : ${SERVER_DOMAIN}
 🖥 *IP*      : ${SERVER_IP}
-🔐 *Password*: \`${ZIP_PASSWORD}\`
-📦 *File*    : \`${BACKUP_FILENAME}\`
+🔐 *Password*: ${ZIP_PASSWORD}
+📦 *File*    : ${BACKUP_FILENAME}
 ━━━━━━━━━━━━━━━━━━━━
 ✅ Backup tersimpan di GitHub"
 
-    send_telegram "$TG_MESSAGE"
     log "INFO" "Notifikasi Telegram terkirim"
 
-    # ── AUTO DELETE BACKUP LAMA ──────────────────────────────
-    # Jika total backup di GitHub sudah mencapai MAX_BACKUPS (10),
-    # hapus SEMUA file backup lalu mulai dari 0 lagi
-    echo -e "${CYAN}🗑  Mengecek batas maksimal backup...${NC}"
+    # ── AUTO DELETE JIKA MENCAPAI BATAS ─────────────────────
+    echo -e "${CYAN}🗑  Mengecek batas backup...${NC}"
 
-    # Ambil daftar file backup dari git tracking (sumber = GitHub)
-    mapfile -t backup_files < <(
+    # Ambil daftar dari git tracking = sama persis dengan GitHub
+    mapfile -t all_backups < <(
         git -C "$LOCAL_REPO" ls-files "${BACKUP_PREFIX}_*.zip" | sort -r
     )
-    local total=${#backup_files[@]}
-
+    local total=${#all_backups[@]}
     echo -e "${CYAN}   Total backup di GitHub: ${total}/${MAX_BACKUPS}${NC}"
 
     if [ "$total" -ge "$MAX_BACKUPS" ]; then
-        echo -e "${YELLOW}⚠  Batas $MAX_BACKUPS file tercapai! Menghapus SEMUA backup lama...${NC}"
+        echo -e "${YELLOW}⚠  Batas ${MAX_BACKUPS} tercapai! Menghapus SEMUA backup lama...${NC}"
+
+        local GITHUB_TOKEN
+        GITHUB_TOKEN=$(cat "$TOKEN_FILE")
+        git -C "$LOCAL_REPO" remote set-url origin \
+            "https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
 
         local deleted=0
-        for old_name in "${backup_files[@]}"; do
-            # Hapus dari git tracking → hilang dari GitHub saat push
-            git -C "$LOCAL_REPO" rm -f "$old_name" -q 2>/dev/null
-
-            # Hapus file fisik lokal
-            rm -f "${LOCAL_REPO}/${old_name}"
-
-            echo -e "${YELLOW}   🗑 Dihapus: ${old_name}${NC}"
-            log "INFO" "Auto-delete: $old_name"
+        for fname in "${all_backups[@]}"; do
+            git -C "$LOCAL_REPO" rm -f "$fname" -q 2>/dev/null
+            rm -f "${LOCAL_REPO}/${fname}"
+            echo -e "${YELLOW}   🗑 Dihapus: ${fname}${NC}"
+            log "INFO" "Auto-delete: $fname"
             (( deleted++ ))
         done
 
-        # Commit & push penghapusan semua file ke GitHub
-        git -C "$LOCAL_REPO" commit -m "🗑 Auto-delete: reset semua $deleted backup (batas $MAX_BACKUPS tercapai)" -q
+        git -C "$LOCAL_REPO" commit -m "🗑 Auto-delete: reset $deleted backup (batas $MAX_BACKUPS)" -q
         if git -C "$LOCAL_REPO" push origin "$GITHUB_BRANCH" -q 2>&1; then
-            echo -e "${GREEN}✅ Semua $deleted file backup lama berhasil dihapus dari GitHub!${NC}"
-            echo -e "${GREEN}   Backup baru akan mulai dari 1 lagi.${NC}"
-            log "INFO" "Auto-delete reset: $deleted file dihapus, mulai dari 0"
+            echo -e "${GREEN}✅ $deleted file dihapus dari GitHub. Mulai dari 1 lagi.${NC}"
+            log "INFO" "Auto-delete: $deleted file dihapus"
         else
-            echo -e "${RED}❌ Gagal push penghapusan ke GitHub!${NC}"
-            log "ERROR" "Gagal push delete reset ke GitHub"
+            echo -e "${RED}❌ Gagal push penghapusan!${NC}"
+            log "ERROR" "Gagal push auto-delete"
         fi
+
+        git -C "$LOCAL_REPO" remote set-url origin \
+            "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
     else
         echo -e "${GREEN}✓ Jumlah backup: ${total}/${MAX_BACKUPS}, belum mencapai batas.${NC}"
     fi
-
-    # Bersihkan token dari remote URL
-    git remote set-url origin "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
 }
 
 # ════════════════════════════════════════════════════════════
@@ -370,49 +337,34 @@ start_auto_backup() {
     SCRIPT_PATH="$(realpath "$0")"
     local CRON_JOB="0 */3 * * * /bin/bash $SCRIPT_PATH --run-backup >> $LOG_FILE 2>&1"
 
-    # Cek apakah cron sudah ada
     if crontab -l 2>/dev/null | grep -q "$SCRIPT_PATH"; then
         echo -e "${YELLOW}⚠  Auto backup sudah aktif!${NC}"
         echo ""
-        echo -e "${WHITE}Jadwal saat ini:${NC}"
         crontab -l | grep "$SCRIPT_PATH"
         echo ""
-        read -rp "$(echo -e "${CYAN}Reset/update jadwal? [y/N]: ${NC}")" confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
-            return
-        fi
+        read -rp "$(echo -e "${CYAN}Reset jadwal? [y/N]: ${NC}")" confirm
+        [[ ! "$confirm" =~ ^[Yy]$ ]] && { read -rp "$(echo -e "${CYAN}Tekan Enter...${NC}")"; return; }
     fi
 
-    # Daftarkan cron
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "$CRON_JOB") | crontab -
 
     echo ""
-    echo -e "${GREEN}✅ Auto backup berhasil diaktifkan!${NC}"
+    echo -e "${GREEN}✅ Auto backup aktif!${NC}"
     echo ""
-    echo -e "${WHITE}📋 Detail jadwal:${NC}"
-    echo -e "   ${CYAN}Interval  :${NC} Setiap 3 jam (00:00, 03:00, 06:00, ...)"
-    echo -e "   ${CYAN}Log file  :${NC} $LOG_FILE"
-    echo -e "   ${CYAN}Max file  :${NC} $MAX_BACKUPS backup"
-    echo ""
-    echo -e "${WHITE}Perintah berguna:${NC}"
-    echo -e "   ${YELLOW}Lihat log   :${NC} tail -f $LOG_FILE"
-    echo -e "   ${YELLOW}Backup kini :${NC} bash $SCRIPT_PATH --run-backup"
-    echo -e "   ${YELLOW}Hapus cron  :${NC} crontab -e"
+    echo -e "   ${CYAN}Interval :${NC} Setiap 3 jam (00:00, 03:00, 06:00, ...)"
+    echo -e "   ${CYAN}Log      :${NC} tail -f $LOG_FILE"
+    echo -e "   ${CYAN}Manual   :${NC} bash $SCRIPT_PATH --run-backup"
     echo ""
 
-    read -rp "$(echo -e "${CYAN}Jalankan backup sekarang juga? [y/N]: ${NC}")" now
-    if [[ "$now" =~ ^[Yy]$ ]]; then
-        echo ""
-        do_backup
-    fi
+    read -rp "$(echo -e "${CYAN}Jalankan backup sekarang? [y/N]: ${NC}")" now
+    [[ "$now" =~ ^[Yy]$ ]] && { echo ""; do_backup; }
 
     echo ""
     read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
 }
 
 # ════════════════════════════════════════════════════════════
-#  MENU 3 — RESTORE DATA
+#  MENU 3 — RESTORE DATA (langsung dari GitHub)
 # ════════════════════════════════════════════════════════════
 restore_data() {
     show_header
@@ -428,49 +380,59 @@ restore_data() {
         return
     fi
 
-    # Pull dulu biar update
-    echo -e "${CYAN}🔄 Mengambil daftar backup dari GitHub...${NC}"
-    cd "$LOCAL_REPO" || { echo -e "${RED}❌ Repo lokal tidak ditemukan!${NC}"; return; }
-
     local GITHUB_TOKEN
     GITHUB_TOKEN=$(cat "$TOKEN_FILE")
-    git remote set-url origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
-    git pull origin "$GITHUB_BRANCH" -q 2>/dev/null
-    git remote set-url origin "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
 
-    # Ambil daftar file backup
-    mapfile -t backup_files < <(ls -1t "${LOCAL_REPO}/${BACKUP_PREFIX}_"*.zip 2>/dev/null)
+    # ── AMBIL DAFTAR FILE DARI GITHUB API ────────────────────
+    echo -e "${CYAN}🔄 Mengambil daftar backup dari GitHub...${NC}"
+
+    local API_URL="https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}/contents/"
+    local API_RESP
+    API_RESP=$(curl -s \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "${API_URL}?ref=${GITHUB_BRANCH}")
+
+    # Cek error API
+    if echo "$API_RESP" | jq -e '.message' &>/dev/null; then
+        local err_msg
+        err_msg=$(echo "$API_RESP" | jq -r '.message')
+        echo -e "${RED}❌ Gagal ambil data dari GitHub: $err_msg${NC}"
+        echo ""
+        read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
+        return
+    fi
+
+    # Filter hanya file backup_.zip, urutkan terbaru dulu
+    mapfile -t backup_files < <(
+        echo "$API_RESP" | jq -r '.[].name' 2>/dev/null \
+        | grep "^${BACKUP_PREFIX}_.*\.zip$" \
+        | sort -r
+    )
     local total=${#backup_files[@]}
 
     if [ "$total" -eq 0 ]; then
-        echo -e "${RED}❌ Tidak ada file backup ditemukan!${NC}"
+        echo -e "${RED}❌ Tidak ada file backup di GitHub!${NC}"
         echo ""
         read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
         return
     fi
 
     echo ""
-    echo -e "${WHITE}📦 Daftar Backup Tersedia:${NC}"
+    echo -e "${WHITE}📦 Daftar Backup di GitHub:${NC}"
     echo -e "${CYAN}─────────────────────────────────────────────${NC}"
     echo ""
 
     for (( i = 0; i < total; i++ )); do
-        local fname
-        fname=$(basename "${backup_files[$i]}")
-        local fdate
-        fdate=$(echo "$fname" | grep -oP '\d{8}_\d{6}' | sed 's/\(\d\{4\}\)\(\d\{2\}\)\(\d\{2\}\)_\(\d\{2\}\)\(\d\{2\}\)\(\d\{2\}\)/\1-\2-\3 \4:\5:\6/')
-        local fsize
-        fsize=$(du -sh "${backup_files[$i]}" 2>/dev/null | cut -f1)
-
-        printf "  ${GREEN}[%2d]${NC} ${WHITE}%-42s${NC} ${CYAN}%s${NC} ${YELLOW}(%s)${NC}\n" \
-            $(( i + 1 )) "$fname" "$fdate" "$fsize"
+        printf "  ${GREEN}[%2d]${NC} ${WHITE}%s${NC}\n" \
+            $(( i + 1 )) "${backup_files[$i]}"
     done
 
     echo ""
     echo -e "${CYAN}─────────────────────────────────────────────${NC}"
     echo -e "  ${RED}[0]${NC} Batal"
     echo ""
-    read -rp "$(echo -e "${WHITE}Pilih nomor backup yang ingin di-restore: ${NC}")" choice
+    read -rp "$(echo -e "${WHITE}Pilih nomor backup: ${NC}")" choice
 
     if [ "$choice" -eq 0 ] 2>/dev/null; then
         return
@@ -482,80 +444,94 @@ restore_data() {
         return
     fi
 
-    local selected_file="${backup_files[$(( choice - 1 ))]}"
-    local selected_name
-    selected_name=$(basename "$selected_file")
+    local selected_name="${backup_files[$(( choice - 1 ))]}"
 
     echo ""
-    echo -e "${YELLOW}⚠  PERHATIAN! Restore akan menimpa data yang ada saat ini!${NC}"
+    echo -e "${YELLOW}⚠  PERHATIAN! Restore akan menimpa data saat ini!${NC}"
     echo -e "${WHITE}File dipilih: ${CYAN}${selected_name}${NC}"
     echo ""
     read -rsp "$(echo -e "${WHITE}Masukkan password ZIP: ${NC}")" input_password
     echo ""
-
-    # Test password dulu
-    echo -e "${CYAN}🔐 Memverifikasi password...${NC}"
-    if ! unzip -t -P "$input_password" "$selected_file" &>/dev/null; then
-        echo -e "${RED}❌ Password salah atau file rusak!${NC}"
-        echo ""
-        read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
-        return
-    fi
-    echo -e "${GREEN}✓ Password benar.${NC}"
-
     echo ""
-    read -rp "$(echo -e "${RED}Konfirmasi restore? Data lama akan ditimpa! [y/N]: ${NC}")" confirm
+    read -rp "$(echo -e "${RED}Konfirmasi restore? [y/N]: ${NC}")" confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}Restore dibatalkan.${NC}"
         read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
         return
     fi
 
-    # Extract ke temp
+    # ── DOWNLOAD LANGSUNG DARI GITHUB ────────────────────────
     local RESTORE_TMP="/tmp/restore_$$"
+    local DOWNLOAD_PATH="${RESTORE_TMP}/${selected_name}"
     mkdir -p "$RESTORE_TMP"
 
     echo ""
-    echo -e "${CYAN}📦 Mengekstrak file backup...${NC}"
-    unzip -q -P "$input_password" "$selected_file" -d "$RESTORE_TMP"
+    echo -e "${CYAN}⬇  Mengunduh ${selected_name} dari GitHub...${NC}"
 
-    # Cari folder hasil extract (subfolder timestamp)
-    local EXTRACT_DIR
-    EXTRACT_DIR=$(find "$RESTORE_TMP" -mindepth 1 -maxdepth 1 -type d | head -1)
+    local DOWNLOAD_URL="https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}/${GITHUB_BRANCH}/${selected_name}"
+    local HTTP_CODE
+    HTTP_CODE=$(curl -L -s -o "$DOWNLOAD_PATH" -w "%{http_code}" \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        "$DOWNLOAD_URL")
 
-    if [ -z "$EXTRACT_DIR" ]; then
-        EXTRACT_DIR="$RESTORE_TMP"
+    if [ "$HTTP_CODE" != "200" ] || [ ! -f "$DOWNLOAD_PATH" ]; then
+        echo -e "${RED}❌ Gagal download (HTTP $HTTP_CODE)!${NC}"
+        rm -rf "$RESTORE_TMP"
+        echo ""
+        read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
+        return
     fi
 
-    echo -e "${CYAN}♻  Memulai restore...${NC}"
-    cd "$EXTRACT_DIR" || return 1
+    echo -e "${GREEN}✓ Download selesai.${NC}"
 
-    # ── RESTORE FILE ─────────────────────────────────────────
-    cp passwd          /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/passwd"
-    cp group           /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/group"
-    cp shadow          /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadow"
-    cp gshadow         /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/gshadow"
-    cp crontab         /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/crontab"
-    cp -r conf         /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/conf"
-    cp -r xray         /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/xray"
-    cp -r html         /var/www/          &>/dev/null && echo -e "  ${GREEN}✓${NC} /var/www/html"
-    cp .vmess.db       /etc/vmess/        &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vmess/.vmess.db"
-    cp .vless.db       /etc/vless/        &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vless/.vless.db"
-    cp .trojan.db      /etc/trojan/       &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/trojan/.trojan.db"
-    cp .shadowsocks.db /etc/shadowsocks/  &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadowsocks/.shadowsocks.db"
-    cp -r limit        /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/limit"
-    cp -r vmess        /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vmess"
-    cp -r trojan       /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/trojan"
-    cp -r vless        /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vless"
-    cp -r shadowsocks  /etc/              &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadowsocks"
-    cp -a detail/.     /detail/           &>/dev/null && echo -e "  ${GREEN}✓${NC} /detail"
-    # ─────────────────────────────────────────────────────────
+    # ── VERIFIKASI PASSWORD ───────────────────────────────────
+    echo -e "${CYAN}🔐 Memverifikasi password ZIP...${NC}"
+    if ! unzip -t -P "$input_password" "$DOWNLOAD_PATH" &>/dev/null; then
+        echo -e "${RED}❌ Password salah atau file rusak!${NC}"
+        rm -rf "$RESTORE_TMP"
+        echo ""
+        read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
+        return
+    fi
+    echo -e "${GREEN}✓ Password benar.${NC}"
+
+    # ── EXTRACT ───────────────────────────────────────────────
+    echo -e "${CYAN}📦 Mengekstrak...${NC}"
+    unzip -q -P "$input_password" "$DOWNLOAD_PATH" -d "$RESTORE_TMP"
+
+    local EXTRACT_DIR
+    EXTRACT_DIR=$(find "$RESTORE_TMP" -mindepth 1 -maxdepth 1 -type d | head -1)
+    [ -z "$EXTRACT_DIR" ] && EXTRACT_DIR="$RESTORE_TMP"
+
+    # ── RESTORE ───────────────────────────────────────────────
+    echo -e "${CYAN}♻  Memulai restore...${NC}"
+    echo ""
+    cd "$EXTRACT_DIR" || { echo -e "${RED}❌ Gagal masuk direktori extract!${NC}"; rm -rf "$RESTORE_TMP"; return 1; }
+
+    cp passwd                /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/passwd"
+    cp group                 /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/group"
+    cp shadow                /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadow"
+    cp gshadow               /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/gshadow"
+    cp crontab               /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/crontab"
+    cp -r conf               /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/conf"
+    cp -r xray               /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/xray"
+    cp -r html               /var/www/         &>/dev/null && echo -e "  ${GREEN}✓${NC} /var/www/html"
+    cp .vmess.db             /etc/vmess/       &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vmess/.vmess.db"
+    cp .vless.db             /etc/vless/       &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vless/.vless.db"
+    cp .trojan.db            /etc/trojan/      &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/trojan/.trojan.db"
+    cp .shadowsocks.db       /etc/shadowsocks/ &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadowsocks/.shadowsocks.db"
+    cp -r limit              /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/limit"
+    cp -r vmess              /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vmess"
+    cp -r trojan             /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/trojan"
+    cp -r vless              /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/vless"
+    cp -r shadowsocks        /etc/             &>/dev/null && echo -e "  ${GREEN}✓${NC} /etc/shadowsocks"
+    cp -a detail/.           /detail/          &>/dev/null && echo -e "  ${GREEN}✓${NC} /detail"
 
     rm -rf "$RESTORE_TMP"
 
     echo ""
     echo -e "${GREEN}✅ Restore selesai dari: ${selected_name}${NC}"
-    log "INFO" "Restore berhasil dari: $selected_name"
+    log "INFO" "Restore berhasil dari GitHub: $selected_name"
     echo ""
     read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
 }
@@ -575,7 +551,7 @@ main_menu() {
         echo -e "      ${CYAN}Aktifkan jadwal backup otomatis setiap 3 jam${NC}"
         echo ""
         echo -e "  ${GREEN}[3]${NC} ${WHITE}Restore Data${NC}"
-        echo -e "      ${CYAN}Pilih dan restore dari daftar backup di GitHub${NC}"
+        echo -e "      ${CYAN}Download & restore langsung dari GitHub${NC}"
         echo ""
         echo -e "  ${RED}[0]${NC} ${WHITE}Keluar${NC}"
         echo ""
@@ -586,21 +562,13 @@ main_menu() {
             1) setup_github ;;
             2) start_auto_backup ;;
             3) restore_data ;;
-            0)
-                echo ""
-                echo -e "${GREEN}Sampai jumpa!${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}Pilihan tidak valid!${NC}"
-                sleep 1
-                ;;
+            0) echo ""; echo -e "${GREEN}Sampai jumpa!${NC}"; exit 0 ;;
+            *) echo -e "${RED}Pilihan tidak valid!${NC}"; sleep 1 ;;
         esac
     done
 }
 
 # ── ENTRY POINT ──────────────────────────────────────────────
-# Dipanggil dari cron dengan flag --run-backup
 if [ "$1" == "--run-backup" ]; then
     load_config
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ========== Cron backup mulai =========="
@@ -609,6 +577,5 @@ if [ "$1" == "--run-backup" ]; then
     exit 0
 fi
 
-# Panggil menu utama
 check_deps
 main_menu

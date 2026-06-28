@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-#           GITHUB BACKUP MANAGER v2.0
+#           GITHUB BACKUP MANAGER v2.1
 #   Auto Backup + Restore langsung dari GitHub
 # ============================================================
 
@@ -12,6 +12,7 @@ BACKUP_DIR="/tmp/backup_staging"
 BACKUP_PREFIX="backup"
 MAX_BACKUPS=10
 LOG_FILE="/var/log/backup_manager.log"
+LOCAL_REPO="$HOME/github_backup_repo"   # FIX: Didefinisikan di awal
 # ────────────────────────────────────────────────────────────
 
 # ── WARNA ────────────────────────────────────────────────────
@@ -52,12 +53,13 @@ log() {
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${WHITE}${BOLD}          GITHUB BACKUP MANAGER v2.0                 ${NC}${BLUE}║${NC}"
+    echo -e "${BLUE}║${WHITE}${BOLD}          GITHUB BACKUP MANAGER v2.1                 ${NC}${BLUE}║${NC}"
     echo -e "${BLUE}╠══════════════════════════════════════════════════════╣${NC}"
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
         echo -e "${BLUE}║${NC} ${CYAN}Repo  :${NC} ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
         echo -e "${BLUE}║${NC} ${CYAN}Branch:${NC} ${GITHUB_BRANCH:-main}"
+        echo -e "${BLUE}║${NC} ${CYAN}Path  :${NC} ${LOCAL_REPO}"
     else
         echo -e "${BLUE}║${NC} ${YELLOW}⚠  Belum dikonfigurasi. Pilih menu Setup dulu.${NC}"
     fi
@@ -89,6 +91,81 @@ send_telegram() {
 }
 
 # ════════════════════════════════════════════════════════════
+#  FUNGSI: CEK & INIT REPO GIT (FIX BUG)
+# ════════════════════════════════════════════════════════════
+ensure_git_repo() {
+    load_config
+    
+    if [ -z "$GITHUB_USERNAME" ] || [ -z "$GITHUB_REPO_NAME" ]; then
+        echo -e "${RED}❌ Belum dikonfigurasi! Jalankan Setup dulu.${NC}"
+        return 1
+    fi
+
+    local GITHUB_TOKEN
+    GITHUB_TOKEN=$(cat "$TOKEN_FILE" 2>/dev/null)
+    if [ -z "$GITHUB_TOKEN" ]; then
+        echo -e "${RED}❌ Token tidak ditemukan! Jalankan Setup ulang.${NC}"
+        return 1
+    fi
+
+    local REMOTE_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+    local REMOTE_URL_PUBLIC="https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+
+    # ── Cek apakah repo lokal ada ────────────────────────────
+    if [ ! -d "$LOCAL_REPO" ]; then
+        echo -e "${YELLOW}⚠  Folder repo tidak ditemukan. Membuat baru...${NC}"
+        mkdir -p "$LOCAL_REPO"
+    fi
+
+    cd "$LOCAL_REPO" || return 1
+
+    # ── Cek apakah .git ada ──────────────────────────────────
+    if [ ! -d "$LOCAL_REPO/.git" ]; then
+        echo -e "${YELLOW}⚠  Repo Git belum diinisialisasi.${NC}"
+        
+        # Coba clone dulu
+        echo -e "${CYAN}   Mencoba clone dari GitHub...${NC}"
+        if git clone "$REMOTE_URL" . 2>/dev/null; then
+            echo -e "${GREEN}✓ Clone berhasil!${NC}"
+        else
+            echo -e "${YELLOW}   Repo di GitHub belum ada atau kosong. Membuat baru...${NC}"
+            git init -q
+            git checkout -b "$GITHUB_BRANCH" 2>/dev/null || true
+            echo "# Backup Repository - $(date)" > README.md
+            git add README.md
+            git config user.email "backup@server.local"
+            git config user.name "Backup Manager"
+            git commit -m "🚀 Initial commit" -q
+            git remote add origin "$REMOTE_URL"
+            
+            echo -e "${CYAN}   Push ke GitHub...${NC}"
+            if git push -u origin "$GITHUB_BRANCH" -q 2>/dev/null; then
+                echo -e "${GREEN}✓ Repo baru berhasil dibuat di GitHub!${NC}"
+            else
+                echo -e "${RED}❌ Gagal push ke GitHub. Buat repo manual dulu di GitHub.${NC}"
+                return 1
+            fi
+        fi
+    fi
+
+    # ── Pastikan remote URL benar ────────────────────────────
+    git remote set-url origin "$REMOTE_URL" 2>/dev/null || git remote add origin "$REMOTE_URL"
+    
+    # ── Pastikan branch benar ────────────────────────────────
+    git checkout "$GITHUB_BRANCH" 2>/dev/null || git checkout -b "$GITHUB_BRANCH"
+    
+    # ── Set konfigurasi Git ──────────────────────────────────
+    git config user.email "backup@server.local"
+    git config user.name "Backup Manager"
+
+    # ── Simpan remote public untuk digunakan setelah push ────
+    echo "$REMOTE_URL_PUBLIC" > "$LOCAL_REPO/.remote_public"
+    
+    echo -e "${GREEN}✓ Repo Git siap digunakan.${NC}"
+    return 0
+}
+
+# ════════════════════════════════════════════════════════════
 #  MENU 1 — SETUP GITHUB
 # ════════════════════════════════════════════════════════════
 setup_github() {
@@ -105,25 +182,26 @@ setup_github() {
     echo ""
     echo -e "${YELLOW}Token: GitHub → Settings → Developer Settings → Personal Access Tokens (classic) → centang 'repo'${NC}"
     echo ""
-    read -rp "$(echo -e "${WHITE}Personal Access Token : ${NC}")" GITHUB_TOKEN
+    read -rsp "$(echo -e "${WHITE}Personal Access Token : ${NC}")" GITHUB_TOKEN
     echo ""
 
     echo ""
-    read -rp "$(echo -e "${WHITE}Password ZIP backup   : ${NC}")" ZIP_PASSWORD
+    read -rsp "$(echo -e "${WHITE}Password ZIP backup   : ${NC}")" ZIP_PASSWORD
     echo ""
 
     echo ""
     echo -e "${YELLOW}Notifikasi Telegram (opsional, Enter untuk skip):${NC}"
     echo -e "${YELLOW}Bot Token → @BotFather | User ID → @userinfobot${NC}"
     echo ""
-    read -rp "$(echo -e "${WHITE}Telegram Bot Token    : ${NC}")" TG_BOT_TOKEN
+    read -rsp "$(echo -e "${WHITE}Telegram Bot Token    : ${NC}")" TG_BOT_TOKEN
     echo ""
     read -rp  "$(echo -e "${WHITE}Telegram User ID      : ${NC}")" TG_USER_ID
 
-    # Simpan token & config
+    # Simpan token
     echo "$GITHUB_TOKEN" > "$TOKEN_FILE"
     chmod 600 "$TOKEN_FILE"
-    LOCAL_REPO="$HOME/github_backup_repo"
+    
+    # Simpan config
     save_config
 
     # Test Telegram
@@ -143,38 +221,15 @@ setup_github() {
     echo -e "${CYAN}─────────────────────────────────────────────${NC}"
     echo -e "${WHITE}🔧 Inisialisasi repository lokal...${NC}"
 
-    local REMOTE_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
-
-    if [ -d "$LOCAL_REPO/.git" ]; then
-        echo -e "${GREEN}✓ Repo lokal sudah ada.${NC}"
-        cd "$LOCAL_REPO" || exit 1
-        git remote set-url origin "$REMOTE_URL"
+    # Panggil fungsi ensure_git_repo
+    if ensure_git_repo; then
+        echo -e "${GREEN}✅ Setup selesai!${NC}"
+        log "INFO" "Setup selesai: ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
     else
-        mkdir -p "$LOCAL_REPO"
-        cd "$LOCAL_REPO" || exit 1
-        if git clone "$REMOTE_URL" . 2>/dev/null; then
-            echo -e "${GREEN}✓ Repo berhasil di-clone dari GitHub.${NC}"
-        else
-            git init -q
-            git checkout -b "$GITHUB_BRANCH" 2>/dev/null || true
-            echo "# Backup Repository" > README.md
-            git add README.md
-            git config user.email "backup@server.local"
-            git config user.name "Backup Manager"
-            git commit -m "🚀 Initial commit" -q
-            git remote add origin "$REMOTE_URL"
-            git push -u origin "$GITHUB_BRANCH" -q 2>/dev/null \
-                && echo -e "${GREEN}✓ Repo baru dibuat di GitHub.${NC}" \
-                || echo -e "${YELLOW}⚠ Buat repo '${GITHUB_REPO_NAME}' dulu di GitHub, lalu jalankan setup lagi.${NC}"
-        fi
+        echo -e "${RED}❌ Setup gagal! Periksa koneksi dan token.${NC}"
+        log "ERROR" "Setup gagal"
     fi
 
-    git config user.email "backup@server.local"
-    git config user.name "Backup Manager"
-
-    echo ""
-    echo -e "${GREEN}✅ Setup selesai!${NC}"
-    log "INFO" "Setup selesai: ${GITHUB_USERNAME}/${GITHUB_REPO_NAME}"
     echo ""
     read -rp "$(echo -e "${CYAN}Tekan Enter untuk kembali...${NC}")"
 }
@@ -191,6 +246,13 @@ do_backup() {
         return 1
     fi
 
+    # ── FIX: PASTIKAN REPO GIT VALID ─────────────────────────
+    if ! ensure_git_repo; then
+        echo -e "${RED}❌ Repo Git tidak valid. Jalankan Setup ulang.${NC}"
+        return 1
+    fi
+
+    # ── Mulai backup ──────────────────────────────────────────
     local TIMESTAMP BACKUP_FILENAME STAGE_DIR
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     BACKUP_FILENAME="${BACKUP_PREFIX}_${TIMESTAMP}.zip"
@@ -239,19 +301,27 @@ do_backup() {
 
     local GITHUB_TOKEN
     GITHUB_TOKEN=$(cat "$TOKEN_FILE")
-    git remote set-url origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+    local REMOTE_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+    local REMOTE_URL_PUBLIC="https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+
+    # Set remote dengan token
+    git remote set-url origin "$REMOTE_URL"
     git checkout "$GITHUB_BRANCH" 2>/dev/null || git checkout -b "$GITHUB_BRANCH"
+    
     git add "${BACKUP_FILENAME}"
     git commit -m "🔄 Auto backup: $TIMESTAMP" -q
 
-    if ! git push origin "$GITHUB_BRANCH" -q 2>&1; then
-        git remote set-url origin "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+    # Push dengan error handling
+    if ! git push origin "$GITHUB_BRANCH" 2>&1; then
+        # Reset remote ke public (tanpa token)
+        git remote set-url origin "$REMOTE_URL_PUBLIC"
         echo -e "${RED}❌ Gagal push ke GitHub!${NC}"
         log "ERROR" "Gagal push: $BACKUP_FILENAME"
         return 1
     fi
 
-    git remote set-url origin "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+    # Reset remote ke public (tanpa token) untuk keamanan
+    git remote set-url origin "$REMOTE_URL_PUBLIC"
     echo -e "${GREEN}✅ Backup berhasil di-push ke GitHub!${NC}"
     log "INFO" "Backup sukses: $BACKUP_FILENAME"
 
@@ -276,7 +346,7 @@ do_backup() {
     # ── AUTO DELETE JIKA MENCAPAI BATAS ─────────────────────
     echo -e "${CYAN}🗑  Mengecek batas backup...${NC}"
 
-    # Ambil daftar dari git tracking = sama persis dengan GitHub
+    # Ambil daftar dari git tracking
     mapfile -t all_backups < <(
         git -C "$LOCAL_REPO" ls-files "${BACKUP_PREFIX}_*.zip" | sort -r
     )
@@ -286,10 +356,8 @@ do_backup() {
     if [ "$total" -ge "$MAX_BACKUPS" ]; then
         echo -e "${YELLOW}⚠  Batas ${MAX_BACKUPS} tercapai! Menghapus SEMUA backup lama...${NC}"
 
-        local GITHUB_TOKEN
-        GITHUB_TOKEN=$(cat "$TOKEN_FILE")
-        git -C "$LOCAL_REPO" remote set-url origin \
-            "https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+        # Set remote dengan token untuk push delete
+        git remote set-url origin "$REMOTE_URL"
 
         local deleted=0
         for fname in "${all_backups[@]}"; do
@@ -309,8 +377,8 @@ do_backup() {
             log "ERROR" "Gagal push auto-delete"
         fi
 
-        git -C "$LOCAL_REPO" remote set-url origin \
-            "https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO_NAME}.git"
+        # Reset remote ke public
+        git remote set-url origin "$REMOTE_URL_PUBLIC"
     else
         echo -e "${GREEN}✓ Jumlah backup: ${total}/${MAX_BACKUPS}, belum mencapai batas.${NC}"
     fi

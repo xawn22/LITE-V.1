@@ -346,7 +346,7 @@ start_auto_backup() {
 
     local SCRIPT_PATH
     SCRIPT_PATH="$(realpath "$0")"
-    local CRON_JOB="0 */3 * * * /bin/bash $SCRIPT_PATH --run-backup >> $LOG_FILE 2>&1"
+    local CRON_JOB="0 */4 * * * $SCRIPT_PATH --run-backup >> $LOG_FILE 2>&1"
 
     if crontab -l 2>/dev/null | grep -q "$SCRIPT_PATH"; then
         echo -e "${YELLOW}⚠  Auto backup sudah aktif!${NC}"

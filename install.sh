@@ -1274,6 +1274,14 @@ sleep 1
 function botvpn_install(){
 clear
 wget https://raw.githubusercontent.com/xawn22/mini-botvpn/main/start-minibot.sh
+pip install requests
+pip install aiohttp
+pip install qrcode[pil]
+apt install sqlite3 -y
+cd
+wget https://raw.githubusercontent.com/xawn22/LITE-V.1/main/back-gh.sh
+mv /root/back-gh.sh /usr/local/sbin/back-gh
+chmod +x /usr/local/sbin/back-gh
 bash start-minibot.sh
 }
 function mulai_penginstallan(){
